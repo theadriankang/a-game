@@ -15,9 +15,24 @@ const config: Config = {
         text2: "var(--text2)",
         text3: "var(--text3)",
         accent: "var(--accent)",
-        green: "var(--green)",
-        amber: "var(--amber)",
-        red: "var(--red)",
+        green: {
+          DEFAULT: "var(--green)",
+          bg: "var(--green-bg)",
+          border: "var(--green-border)",
+        },
+        amber: {
+          DEFAULT: "var(--amber)",
+          bg: "var(--amber-bg)",
+          border: "var(--amber-border)",
+        },
+        red: {
+          DEFAULT: "var(--red)",
+          bg: "var(--red-bg)",
+          border: "var(--red-border)",
+        },
+        seg: {
+          bg: "var(--seg-bg)",
+        },
       },
       fontFamily: {
         sans: [
