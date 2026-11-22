@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+type Layout = "vertical" | "horizontal";
+
 type ResolvedLesson = {
   moduleCode: string;
   moduleTitle: string;
@@ -63,6 +65,7 @@ export function TimetablePanel() {
   const [problems, setProblems] = useState<string[]>([]);
   const [lessons, setLessons] = useState<ResolvedLesson[] | null>(null);
   const [semester, setSemester] = useState<number | null>(null);
+  const [layout, setLayout] = useState<Layout>("vertical");
 
   async function load() {
     setLoading(true);
@@ -157,66 +160,145 @@ export function TimetablePanel() {
 
         {lessons && lessons.length > 0 ? (
           <div className="mt-6 animate-fade-slide-in">
-            <div className="mb-2 text-[13px] font-semibold text-text1">
-              Semester {semester}
-            </div>
-            <div className="flex overflow-x-auto rounded-xl border border-border bg-surface">
-              <div className="w-14 shrink-0 border-r border-border">
-                <div className="h-8 border-b border-border" />
-                <div className="relative" style={{ height: gridHeight }}>
-                  {hourMarks.map((m) => (
-                    <div
-                      key={m}
-                      className="absolute right-1.5 -translate-y-1/2 text-[10.5px] text-text3"
-                      style={{ top: (m - START_MIN) * PX_PER_MIN }}
-                    >
-                      {String(Math.floor(m / 60)).padStart(2, "0")}:00
-                    </div>
-                  ))}
-                </div>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-text1">
+                Semester {semester}
               </div>
-              {DAYS.map((day) => (
-                <div key={day} className="w-[150px] shrink-0 border-r border-border last:border-r-0">
-                  <div className="flex h-8 items-center justify-center border-b border-border text-[12px] font-semibold text-text2">
-                    {day.slice(0, 3)}
-                  </div>
+              <div className="inline-flex w-fit gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+                {(["vertical", "horizontal"] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLayout(l)}
+                    className={`rounded-md px-3 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
+                      layout === l ? "bg-accent text-white" : "text-text2 hover:text-text1"
+                    }`}
+                  >
+                    {l === "vertical" ? "Vertical" : "Horizontal"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {layout === "vertical" ? (
+              <div className="flex w-full rounded-xl border border-border bg-surface">
+                <div className="w-14 shrink-0 border-r border-border">
+                  <div className="h-8 border-b border-border" />
                   <div className="relative" style={{ height: gridHeight }}>
                     {hourMarks.map((m) => (
                       <div
                         key={m}
-                        className="absolute left-0 right-0 border-t border-border/60"
+                        className="absolute right-1.5 -translate-y-1/2 text-[10.5px] text-text3"
                         style={{ top: (m - START_MIN) * PX_PER_MIN }}
-                      />
+                      >
+                        {String(Math.floor(m / 60)).padStart(2, "0")}:00
+                      </div>
                     ))}
-                    {(byDay.get(day) ?? []).map((lesson, i) => {
-                      const top = (toMinutes(lesson.startTime) - START_MIN) * PX_PER_MIN;
-                      const height =
-                        (toMinutes(lesson.endTime) - toMinutes(lesson.startTime)) * PX_PER_MIN;
-                      return (
-                        <div
-                          key={`${lesson.moduleCode}-${lesson.lessonType}-${lesson.classNo}-${i}`}
-                          className={`absolute left-0.5 right-0.5 overflow-hidden rounded-md border px-1.5 py-1 text-[10.5px] leading-tight ${colorFor(
-                            lesson.moduleCode
-                          )}`}
-                          style={{ top, height: Math.max(height, 20) }}
-                          title={`${lesson.moduleCode} ${lesson.lessonType} [${lesson.classNo}] - ${lesson.venue} - ${describeWeeksClient(
-                            lesson.weeks
-                          )}`}
-                        >
-                          <div className="font-semibold">{lesson.moduleCode}</div>
-                          <div className="truncate">
-                            {lesson.lessonType} · {lesson.venue}
-                          </div>
-                          <div className="truncate opacity-70">
-                            {describeWeeksClient(lesson.weeks)}
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+                {DAYS.map((day) => (
+                  <div
+                    key={day}
+                    className="min-w-0 flex-1 border-r border-border last:border-r-0"
+                  >
+                    <div className="flex h-8 items-center justify-center border-b border-border text-[12px] font-semibold text-text2">
+                      {day.slice(0, 3)}
+                    </div>
+                    <div className="relative" style={{ height: gridHeight }}>
+                      {hourMarks.map((m) => (
+                        <div
+                          key={m}
+                          className="absolute left-0 right-0 border-t border-border/60"
+                          style={{ top: (m - START_MIN) * PX_PER_MIN }}
+                        />
+                      ))}
+                      {(byDay.get(day) ?? []).map((lesson, i) => {
+                        const top = (toMinutes(lesson.startTime) - START_MIN) * PX_PER_MIN;
+                        const height =
+                          (toMinutes(lesson.endTime) - toMinutes(lesson.startTime)) * PX_PER_MIN;
+                        return (
+                          <div
+                            key={`${lesson.moduleCode}-${lesson.lessonType}-${lesson.classNo}-${i}`}
+                            className={`absolute left-0.5 right-0.5 overflow-hidden rounded-md border px-1.5 py-1 text-[10.5px] leading-tight ${colorFor(
+                              lesson.moduleCode
+                            )}`}
+                            style={{ top, height: Math.max(height, 20) }}
+                            title={`${lesson.moduleCode} ${lesson.lessonType} [${lesson.classNo}] - ${lesson.venue} - ${describeWeeksClient(
+                              lesson.weeks
+                            )}`}
+                          >
+                            <div className="font-semibold">{lesson.moduleCode}</div>
+                            <div className="truncate">
+                              {lesson.lessonType} · {lesson.venue}
+                            </div>
+                            <div className="truncate opacity-70">
+                              {describeWeeksClient(lesson.weeks)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="w-full overflow-hidden rounded-xl border border-border bg-surface">
+                <div className="flex border-b border-border">
+                  <div className="w-16 shrink-0 border-r border-border" />
+                  <div className="relative h-8 flex-1">
+                    {hourMarks.map((m) => (
+                      <div
+                        key={m}
+                        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10.5px] text-text3"
+                        style={{ left: `${((m - START_MIN) / (END_MIN - START_MIN)) * 100}%` }}
+                      >
+                        {String(Math.floor(m / 60)).padStart(2, "0")}:00
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {DAYS.map((day) => (
+                  <div key={day} className="flex border-b border-border last:border-b-0">
+                    <div className="flex w-16 shrink-0 items-center border-r border-border px-2 text-[12px] font-semibold text-text2">
+                      {day.slice(0, 3)}
+                    </div>
+                    <div className="relative flex-1" style={{ height: 68 }}>
+                      {hourMarks.map((m) => (
+                        <div
+                          key={m}
+                          className="absolute top-0 bottom-0 border-l border-border/60"
+                          style={{ left: `${((m - START_MIN) / (END_MIN - START_MIN)) * 100}%` }}
+                        />
+                      ))}
+                      {(byDay.get(day) ?? []).map((lesson, i) => {
+                        const left =
+                          ((toMinutes(lesson.startTime) - START_MIN) / (END_MIN - START_MIN)) * 100;
+                        const width =
+                          ((toMinutes(lesson.endTime) - toMinutes(lesson.startTime)) /
+                            (END_MIN - START_MIN)) *
+                          100;
+                        return (
+                          <div
+                            key={`${lesson.moduleCode}-${lesson.lessonType}-${lesson.classNo}-${i}`}
+                            className={`absolute top-1 bottom-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-[10.5px] leading-tight ${colorFor(
+                              lesson.moduleCode
+                            )}`}
+                            style={{ left: `${left}%`, width: `${width}%` }}
+                            title={`${lesson.moduleCode} ${lesson.lessonType} [${lesson.classNo}] - ${lesson.venue} - ${describeWeeksClient(
+                              lesson.weeks
+                            )}`}
+                          >
+                            <div className="truncate font-semibold">
+                              {lesson.moduleCode} · {lesson.lessonType}
+                            </div>
+                            <div className="truncate opacity-80">{lesson.venue}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
       </main>
