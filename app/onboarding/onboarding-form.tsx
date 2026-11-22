@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Modules are credited in multiples of 4 MC, so a free-typed number field
+// just invited typos (and had its own "0" display bug) for no benefit over
+// a short list of the values that are actually valid.
+const SU_BUDGET_OPTIONS = Array.from({ length: 16 }, (_, i) => i * 4); // 0, 4, ..., 60
+
 export function OnboardingForm() {
   const router = useRouter();
   const [programme, setProgramme] = useState("BComp (Computer Science)");
@@ -73,14 +78,17 @@ export function OnboardingForm() {
         <span className="text-[13px] font-medium text-text1">
           S/U budget (MC)
         </span>
-        <input
-          type="number"
-          min={0}
-          max={60}
+        <select
           value={suBudgetTotalMc}
           onChange={(e) => setSuBudgetTotalMc(Number(e.target.value))}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
-        />
+        >
+          {SU_BUDGET_OPTIONS.map((mc) => (
+            <option key={mc} value={mc}>
+              {mc} MC
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="flex flex-col gap-1.5">
