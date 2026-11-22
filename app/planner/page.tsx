@@ -6,6 +6,7 @@ import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
 import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { checkPlan } from "@/lib/prereq-check";
+import { hasPendingRequest } from "@/lib/module-analysis";
 import { PlannerBoard } from "./planner-board";
 
 // The onboarding placeholder slot for exemptions (see app/api/onboarding) —
@@ -66,6 +67,20 @@ export default async function PlannerPage() {
 
   const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode);
 
+  // Community-signal reports: pull whatever's already cached for the
+  // modules in this plan, plus which ones (if any) are still queued, so
+  // the board can show a report, a "queued" state, or a request button.
+  const analysisRows = await prisma.moduleAnalysis.findMany({
+    where: { moduleCode: { in: distinctCodes }, academicYear: NUSMODS_ACAD_YEAR },
+  });
+  const analysisByCode = Object.fromEntries(analysisRows.map((a) => [a.moduleCode, a]));
+  const pendingFlags = await Promise.all(
+    distinctCodes
+      .filter((code) => !analysisByCode[code])
+      .map(async (code) => [code, await hasPendingRequest(code)] as const)
+  );
+  const pendingCodes = pendingFlags.filter(([, pending]) => pending).map(([code]) => code);
+
   return (
     <PlannerBoard
       userName={user.name}
@@ -77,6 +92,8 @@ export default async function PlannerPage() {
       degreeLabel={bcompCs.label}
       degreeTotalMc={bcompCs.totalMc}
       violationsByEntryId={Object.fromEntries(violationsByEntryId)}
+      analysisByCode={analysisByCode}
+      pendingAnalysisCodes={pendingCodes}
     />
   );
 }

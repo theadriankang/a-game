@@ -17,6 +17,13 @@ type Entry = {
   requirementTag: string | null;
 };
 
+type ModuleAnalysisData = {
+  summary: string;
+  tags: string[];
+  sources: string[];
+  status: "PENDING" | "COMPLETED" | "FAILED" | "THIN_DATA";
+};
+
 type Props = {
   userName: string | null;
   suBudgetTotalMc: number;
@@ -27,6 +34,8 @@ type Props = {
   degreeLabel: string;
   degreeTotalMc: number;
   violationsByEntryId: Record<string, PrereqViolation[]>;
+  analysisByCode: Record<string, ModuleAnalysisData>;
+  pendingAnalysisCodes: string[];
 };
 
 const STATUS_LABEL: Record<Entry["status"], string> = {
@@ -69,12 +78,23 @@ export function PlannerBoard({
   degreeLabel,
   degreeTotalMc,
   violationsByEntryId,
+  analysisByCode,
+  pendingAnalysisCodes,
 }: Props) {
   const router = useRouter();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newSemesterOpen, setNewSemesterOpen] = useState(false);
   const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [requestingCode, setRequestingCode] = useState<string | null>(null);
+
+  async function requestAnalysis(moduleCode: string) {
+    setRequestingCode(moduleCode);
+    await fetch(`/api/modules/${moduleCode}/analysis`, { method: "POST" });
+    setRequestingCode(null);
+    router.refresh();
+  }
 
   const semesters = groupBySemester(semesterEntries);
   const groupOrder = ["Common Curriculum", "Programme Requirements", "Unrestricted Electives"];
@@ -306,6 +326,58 @@ export function PlannerBoard({
                         </span>
                       ) : null}
                     </div>
+
+                    {entry.moduleCode ? (
+                      <div className="mt-1.5">
+                        <button
+                          onClick={() =>
+                            setExpandedCode((c) => (c === entry.moduleCode ? null : entry.moduleCode))
+                          }
+                          className="text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
+                        >
+                          {expandedCode === entry.moduleCode ? "Hide community signal" : "Community signal"}
+                        </button>
+                        {expandedCode === entry.moduleCode ? (
+                          <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
+                            {analysisByCode[entry.moduleCode] ? (
+                              <>
+                                <p>{analysisByCode[entry.moduleCode].summary}</p>
+                                {analysisByCode[entry.moduleCode].status === "THIN_DATA" ? (
+                                  <p className="mt-1 italic text-text3">
+                                    Not much public discussion found for this one.
+                                  </p>
+                                ) : null}
+                                {analysisByCode[entry.moduleCode].tags.length > 0 ? (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {analysisByCode[entry.moduleCode].tags.map((tag) => (
+                                      <span
+                                        key={tag}
+                                        className="rounded-full bg-page px-1.5 py-0.5 text-[10px]"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                <p className="mt-1 text-[10px] text-text3">
+                                  AI-synthesized from public discussion, not an official rating.
+                                </p>
+                              </>
+                            ) : pendingAnalysisCodes.includes(entry.moduleCode) ? (
+                              <p>Analysis queued - check back soon.</p>
+                            ) : (
+                              <button
+                                onClick={() => requestAnalysis(entry.moduleCode!)}
+                                disabled={requestingCode === entry.moduleCode}
+                                className="font-medium text-accent disabled:opacity-50"
+                              >
+                                {requestingCode === entry.moduleCode ? "Queuing…" : "Request analysis"}
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { dbErrorResponse } from "@/lib/api-error";
+import { enqueueAnalysis } from "@/lib/module-analysis";
+import { isCompulsoryModuleCode } from "@/lib/degree-requirements/bucket";
+import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
+import { AnalysisTrigger } from "@prisma/client";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
@@ -72,6 +76,27 @@ export async function POST(request: Request) {
         requirementTag: requirementTag || null,
       },
     });
+
+    // Auto-queue the community-signal report for any module added to a
+    // plan - compulsory modules and anything else both qualify for the
+    // automatic, shared-cache tier (see architecture doc). Best-effort:
+    // a failure here should never block the user from adding the module.
+    if (moduleCode) {
+      // Awaited (not fire-and-forget) - a serverless function can be torn
+      // down right after the response is sent, which would kill a
+      // detached promise before it finishes. This is just two fast DB
+      // reads/writes (no Anthropic call), so the extra wait is negligible.
+      try {
+        await enqueueAnalysis(
+          moduleCode,
+          isCompulsoryModuleCode(moduleCode, bcompCs)
+            ? AnalysisTrigger.AUTO_COMPULSORY
+            : AnalysisTrigger.AUTO_PLANNED
+        );
+      } catch (error) {
+        console.error(`Failed to enqueue analysis for ${moduleCode}:`, error);
+      }
+    }
 
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {

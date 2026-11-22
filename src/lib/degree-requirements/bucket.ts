@@ -84,3 +84,20 @@ export function bucketPlannerEntries(
 
   return Array.from(progress.values());
 }
+
+// Used by the community-signal feature to decide whether a module should
+// be auto-queued for analysis as AUTO_COMPULSORY (it's one of the degree's
+// specifically-named required modules) vs AUTO_PLANNED (anything else a
+// user adds to their plan). Deliberately only matches a bucket's fixed
+// `moduleCodes` list, not `codePrefixes` — a prefix match (e.g. any
+// GEC-coded module) is an elective pool, not a specifically compulsory
+// module, so it doesn't count as "compulsory" here.
+export function isCompulsoryModuleCode(
+  moduleCode: string,
+  structure: DegreeStructure
+): boolean {
+  const code = moduleCode.toUpperCase();
+  return structure.buckets.some(
+    (bucket) => !bucket.manualOnly && bucket.moduleCodes?.includes(code)
+  );
+}
