@@ -203,6 +203,12 @@ export function PlannerBoard({
             Timetable
           </Link>
           <Link
+            href="/minors"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Minors
+          </Link>
+          <Link
             href="/usage"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >
