@@ -176,6 +176,12 @@ export function PlannerBoard({
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/simulator"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            What-if
+          </Link>
+          <Link
             href="/timetable"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >
