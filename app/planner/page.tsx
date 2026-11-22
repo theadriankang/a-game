@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
-import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
+import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { checkPlan } from "@/lib/prereq-check";
 import { hasPendingRequest } from "@/lib/module-analysis";
@@ -42,7 +42,8 @@ export default async function PlannerPage() {
     (e) => e.academicYear === EXEMPTION_YEAR && e.semester === EXEMPTION_SEMESTER
   );
 
-  const buckets = bucketPlannerEntries(entries, bcompCs);
+  const degreeStructure = getDegreeStructureForProgramme(user.programme);
+  const buckets = bucketPlannerEntries(entries, degreeStructure);
 
   // Best-effort: fetch NUSMods data for every distinct module code in the
   // plan, so prereq/preclusion checking has something to check against. A
@@ -89,9 +90,9 @@ export default async function PlannerPage() {
       semesterEntries={semesterEntries}
       exemptionEntries={exemptionEntries}
       buckets={buckets}
-      bucketDefs={bcompCs.buckets}
-      degreeLabel={bcompCs.label}
-      degreeTotalMc={bcompCs.totalMc}
+      bucketDefs={degreeStructure.buckets}
+      degreeLabel={degreeStructure.label}
+      degreeTotalMc={degreeStructure.totalMc}
       violationsByEntryId={Object.fromEntries(violationsByEntryId)}
       analysisByCode={analysisByCode}
       pendingAnalysisCodes={pendingCodes}

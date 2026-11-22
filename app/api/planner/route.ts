@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { dbErrorResponse } from "@/lib/api-error";
 import { enqueueAnalysis } from "@/lib/module-analysis";
 import { isCompulsoryModuleCode } from "@/lib/degree-requirements/bucket";
-import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
+import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { AnalysisTrigger } from "@prisma/client";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
@@ -87,9 +87,11 @@ export async function POST(request: Request) {
       // detached promise before it finishes. This is just two fast DB
       // reads/writes (no Anthropic call), so the extra wait is negligible.
       try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const degreeStructure = getDegreeStructureForProgramme(user?.programme);
         await enqueueAnalysis(
           moduleCode,
-          isCompulsoryModuleCode(moduleCode, bcompCs)
+          isCompulsoryModuleCode(moduleCode, degreeStructure)
             ? AnalysisTrigger.AUTO_COMPULSORY
             : AnalysisTrigger.AUTO_PLANNED
         );

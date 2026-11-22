@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
+import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { SimulatorPanel } from "./simulator-panel";
 
 const EXEMPTION_YEAR = 0;
@@ -10,6 +10,11 @@ const EXEMPTION_SEMESTER = 0;
 export default async function SimulatorPage() {
   const userId = await getSessionUserId();
   if (!userId) {
+    redirect("/sign-in");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
     redirect("/sign-in");
   }
 
@@ -32,5 +37,7 @@ export default async function SimulatorPage() {
     requirementTag: e.requirementTag,
   }));
 
-  return <SimulatorPanel initialEntries={initialEntries} degreeStructure={bcompCs} />;
+  const degreeStructure = getDegreeStructureForProgramme(user.programme);
+
+  return <SimulatorPanel initialEntries={initialEntries} degreeStructure={degreeStructure} />;
 }
