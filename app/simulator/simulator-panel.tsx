@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import Link from "next/link";
 import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import type { DegreeStructure } from "@/lib/degree-requirements/types";
@@ -45,6 +45,30 @@ let nextLocalId = 1;
 function makeLocalId(): string {
   nextLocalId += 1;
   return `sandbox-${nextLocalId}`;
+}
+
+// Named snapshots live only in this browser's localStorage, not the
+// server - they're a scratchpad for comparing "what if" plans, not
+// something that needs to sync across devices or survive a cleared
+// browser profile.
+const SNAPSHOTS_KEY = "a-game:simulator-snapshots";
+
+type Snapshot = {
+  id: string;
+  name: string;
+  savedAt: string;
+  entries: SimEntry[];
+  extraYears: number[];
+};
+
+function loadSnapshotsFromStorage(): Snapshot[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SNAPSHOTS_KEY);
+    return raw ? (JSON.parse(raw) as Snapshot[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 type ModuleSearchResult = { moduleCode: string; title: string };
@@ -121,6 +145,45 @@ export function SimulatorPanel({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [snapshotName, setSnapshotName] = useState("");
+
+  useEffect(() => {
+    setSnapshots(loadSnapshotsFromStorage());
+  }, []);
+
+  function persistSnapshots(next: Snapshot[]) {
+    setSnapshots(next);
+    try {
+      window.localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(next));
+    } catch {
+      // Best-effort only - if storage is full or unavailable, the
+      // snapshot just doesn't persist across a reload.
+    }
+  }
+
+  function saveSnapshot() {
+    const name = snapshotName.trim();
+    if (!name) return;
+    const snapshot: Snapshot = {
+      id: makeLocalId(),
+      name,
+      savedAt: new Date().toISOString(),
+      entries,
+      extraYears,
+    };
+    persistSnapshots([snapshot, ...snapshots]);
+    setSnapshotName("");
+  }
+
+  function loadSnapshot(snapshot: Snapshot) {
+    setEntries(snapshot.entries);
+    setExtraYears(snapshot.extraYears);
+  }
+
+  function deleteSnapshot(id: string) {
+    persistSnapshots(snapshots.filter((s) => s.id !== id));
+  }
 
   const columns = buildColumns(entries, extraYears);
   const buckets = useMemo(
@@ -232,6 +295,63 @@ export function SimulatorPanel({
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-4">
+            <div className="text-[13px] font-semibold text-text1">Saved snapshots</div>
+            <p className="mt-1 text-[11.5px] text-text3">
+              Saved only in this browser, for comparing a few scenarios
+              side by side.
+            </p>
+            <div className="mt-2 flex gap-1.5">
+              <input
+                value={snapshotName}
+                onChange={(e) => setSnapshotName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveSnapshot()}
+                placeholder="Name this scenario"
+                className="flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-[12px] text-text1 outline-none focus:border-accent"
+              />
+              <button
+                onClick={saveSnapshot}
+                disabled={!snapshotName.trim()}
+                className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-[12px] font-semibold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+            {snapshots.length > 0 ? (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {snapshots.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-[12px] font-semibold text-text1">
+                        {s.name}
+                      </div>
+                      <div className="text-[10.5px] text-text3">
+                        {new Date(s.savedAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => loadSnapshot(s)}
+                        className="rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-accent hover:bg-seg-bg"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => deleteSnapshot(s.id)}
+                        className="rounded-md px-1.5 py-0.5 text-[11px] text-text3 hover:bg-seg-bg hover:text-red-500"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </aside>
 
