@@ -1,0 +1,162 @@
+// Multi-user schema: anyone can create their own account and build their own
+// module plan. Nothing here is specific to one person — degree programme,
+// exemptions, and residential-college requirements are all stored per user,
+// not hardcoded.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- auth (NextAuth Prisma adapter shape) ---
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+
+  // Degree context, set during onboarding — not assumed for every user.
+  programme       String?  // e.g. "BComp (Computer Science)"
+  priorDiploma    String?  // e.g. "SP Engineering with Business", nullable
+  suBudgetTotalMc Int      @default(32)
+  suBudgetUsedMc  Int      @default(0)
+
+  accounts        Account[]
+  sessions        Session[]
+  plannerEntries  PlannerEntry[]
+  analysisRequest AnalysisRequest[]
+  telegramLink    TelegramLink?
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// --- planning ---
+
+enum PlanStatus {
+  COMPLETED
+  PLANNED
+  RESERVED // held for a college / programme requirement, not yet a real module
+}
+
+model PlannerEntry {
+  id           String     @id @default(cuid())
+  userId       String
+  moduleCode   String?    // null while the slot is a placeholder (e.g. "Reserved")
+  label        String     // display title; module title, or a reserved-slot name
+  mc           Int
+  academicYear Int        // 1, 2, 3, 4...
+  semester     Int        // 1 or 2
+  status       PlanStatus
+  requirementTag String?  // which degree-requirement bucket this counts toward
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("planner_entries")
+}
+
+// --- community signal (shared cache across all users, not per-user data) ---
+
+enum AnalysisTrigger {
+  AUTO_COMPULSORY
+  AUTO_PLANNED
+  ON_DEMAND
+}
+
+enum AnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  THIN_DATA
+}
+
+model ModuleAnalysis {
+  id          String         @id @default(cuid())
+  moduleCode  String
+  academicYear String        // which AY's offering this report covers
+  summary     String         @db.Text
+  tags        String[]       // e.g. ["Heavy workload", "Team project"]
+  sources     String[]       // URLs or source descriptions, for transparency
+  status      AnalysisStatus @default(PENDING)
+  tokensUsed  Int?
+  costUsd     Float?
+  createdAt   DateTime       @default(now())
+
+  @@unique([moduleCode, academicYear])
+  @@map("module_analyses")
+}
+
+// One row per user-triggered (or auto) request, so the usage page can show
+// "what this platform has consumed" without touching anyone's personal
+// Anthropic account or billing details.
+model AnalysisRequest {
+  id         String          @id @default(cuid())
+  userId     String?         // null for scheduled/auto runs not tied to a click
+  moduleCode String          // logged by code only; not tied to a specific ModuleAnalysis row
+  trigger    AnalysisTrigger
+  status     AnalysisStatus  @default(PENDING)
+  tokensUsed Int?
+  costUsd    Float?
+  createdAt  DateTime        @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("analysis_requests")
+}
+
+model TelegramLink {
+  userId String @id
+  chatId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_links")
+}
