@@ -3,6 +3,7 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
 import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
@@ -173,12 +174,20 @@ export function PlannerBoard({
             {userName ? `Good to see you, ${userName}` : "Your plan"}
           </div>
         </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Settings
+          </Link>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       <div className="flex items-start gap-0">
