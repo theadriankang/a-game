@@ -26,6 +26,21 @@ type ModuleAnalysisData = {
   status: "PENDING" | "COMPLETED" | "FAILED" | "THIN_DATA";
 };
 
+type ModuleGlanceData = {
+  moduleCode: string;
+  title: string;
+  mc: number;
+  department: string | null;
+  faculty: string | null;
+  workload: number[] | null;
+  semestersOffered: number[];
+  prereqCodes: string[];
+  preclusion: string | null;
+  description: string | null;
+};
+
+const WORKLOAD_LABELS = ["Lecture", "Tutorial", "Lab", "Project", "Self-study"];
+
 type Props = {
   userName: string | null;
   suBudgetTotalMc: number;
@@ -537,6 +552,26 @@ function EntryCard({
   onStatusChange: (status: Entry["status"]) => void;
 }) {
   const showTitle = Boolean(entry.label && entry.label !== entry.moduleCode);
+  const [glanceOpen, setGlanceOpen] = useState(false);
+  const [glanceLoading, setGlanceLoading] = useState(false);
+  const [glanceData, setGlanceData] = useState<ModuleGlanceData | null>(null);
+
+  async function toggleGlance() {
+    if (glanceOpen) {
+      setGlanceOpen(false);
+      return;
+    }
+    setGlanceOpen(true);
+    if (!glanceData && entry.moduleCode) {
+      setGlanceLoading(true);
+      try {
+        const res = await fetch(`/api/modules/${entry.moduleCode}/info`);
+        if (res.ok) setGlanceData(await res.json());
+      } finally {
+        setGlanceLoading(false);
+      }
+    }
+  }
 
   return (
     <div
@@ -585,8 +620,49 @@ function EntryCard({
       {entry.moduleCode ? (
         <div className="mt-1.5">
           <button
-            onClick={onToggleExpand}
+            onClick={toggleGlance}
             className="text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
+          >
+            {glanceOpen ? "Hide at a glance" : "At a glance"}
+          </button>
+          {glanceOpen ? (
+            <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
+              {glanceLoading ? (
+                <p>Loading…</p>
+              ) : glanceData ? (
+                <div className="flex flex-col gap-1">
+                  {glanceData.department ? (
+                    <p>
+                      {glanceData.department}
+                      {glanceData.faculty ? ` · ${glanceData.faculty}` : ""}
+                    </p>
+                  ) : null}
+                  {glanceData.workload ? (
+                    <p>
+                      {glanceData.workload
+                        .map((hrs, i) => `${WORKLOAD_LABELS[i] ?? "Other"} ${hrs}h`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                  {glanceData.semestersOffered.length > 0 ? (
+                    <p>Offered: Sem {glanceData.semestersOffered.join(", ")}</p>
+                  ) : (
+                    <p className="italic text-text3">Not offered this academic year.</p>
+                  )}
+                  {glanceData.prereqCodes.length > 0 ? (
+                    <p>Prereqs: {glanceData.prereqCodes.join(", ")}</p>
+                  ) : null}
+                  {glanceData.preclusion ? <p>Preclusion: {glanceData.preclusion}</p> : null}
+                </div>
+              ) : (
+                <p className="italic text-text3">Couldn&rsquo;t load NUSMods data for this module.</p>
+              )}
+            </div>
+          ) : null}
+
+          <button
+            onClick={onToggleExpand}
+            className="mt-1 text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
           >
             {expanded ? "Hide community signal" : "Community signal"}
           </button>
