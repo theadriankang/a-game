@@ -38,6 +38,7 @@ model User {
   plannerEntries  PlannerEntry[]
   analysisRequest AnalysisRequest[]
   telegramLink    TelegramLink?
+  savedTimetables SavedTimetable[]
 
   @@map("users")
 }
@@ -165,4 +166,23 @@ model TelegramLink {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_links")
+}
+
+// One saved NUSMods share link per user per Year/Semester slot, matching
+// the same academicYear/semester numbering PlannerEntry uses. Lets the
+// Timetable page remember a link across visits instead of re-pasting it
+// every time - saving is opt-in, not automatic (see app/timetable).
+model SavedTimetable {
+  id           String   @id @default(cuid())
+  userId       String
+  academicYear Int      // 1, 2, 3, 4...
+  semester     Int      // 1 or 2
+  shareUrl     String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, academicYear, semester])
+  @@map("saved_timetables")
 }

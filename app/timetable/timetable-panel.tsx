@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Layout = "vertical" | "horizontal";
@@ -17,12 +17,29 @@ type ResolvedLesson = {
   weeks: number[] | { weekInterval?: number };
 };
 
+type SavedSlot = {
+  academicYear: number;
+  semester: number;
+  shareUrl: string;
+  updatedAt: string;
+};
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 // Half-hour grid from 8am to 10pm, matching the usual NUS teaching hours.
 const START_MIN = 8 * 60;
 const END_MIN = 22 * 60;
 const PX_PER_MIN = 1.1;
+
+// The same Year 1-4 / Semester 1-2 slots the planner's own semester grid
+// uses, so a saved timetable lines up with the plan it belongs to.
+const SLOTS: { academicYear: number; semester: number }[] = [1, 2, 3, 4].flatMap((year) =>
+  [1, 2].map((sem) => ({ academicYear: year, semester: sem }))
+);
+
+function slotKey(academicYear: number, semester: number): string {
+  return `${academicYear}-${semester}`;
+}
 
 function toMinutes(hhmm: string): number {
   return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(2));
@@ -67,19 +84,30 @@ export function TimetablePanel() {
   const [semester, setSemester] = useState<number | null>(null);
   const [layout, setLayout] = useState<Layout>("vertical");
 
-  async function load() {
+  const [savedBySlot, setSavedBySlot] = useState<Record<string, SavedSlot>>({});
+  const [selectedSlot, setSelectedSlot] = useState<{ academicYear: number; semester: number } | null>(
+    null
+  );
+  const [savingSlot, setSavingSlot] = useState<{ academicYear: number; semester: number } | null>(
+    null
+  );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+
+  async function load(rawUrl: string) {
     setLoading(true);
     setError(null);
     setProblems([]);
+    setSaveState("idle");
     try {
       const res = await fetch("/api/timetable/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: rawUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Couldn't load that timetable.");
+        setLessons(null);
         return;
       }
       setLessons(data.lessons);
@@ -89,6 +117,71 @@ export function TimetablePanel() {
       setError("Couldn't reach the server. Try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // On first load, fetch whichever slots this user has already saved, and
+  // auto-show the most recently saved one so the page isn't blank by
+  // default.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/timetable/saved");
+        if (!res.ok) return;
+        const data = (await res.json()) as { saved: SavedSlot[] };
+        const bySlot: Record<string, SavedSlot> = {};
+        for (const s of data.saved) bySlot[slotKey(s.academicYear, s.semester)] = s;
+        setSavedBySlot(bySlot);
+
+        if (data.saved.length > 0) {
+          const mostRecent = data.saved[0]; // API already orders by updatedAt desc
+          setSelectedSlot({ academicYear: mostRecent.academicYear, semester: mostRecent.semester });
+          setUrl(mostRecent.shareUrl);
+          await load(mostRecent.shareUrl);
+        }
+      } catch {
+        // Best-effort - the page still works for a fresh paste either way.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function selectSlot(academicYear: number, semester: number) {
+    setSelectedSlot({ academicYear, semester });
+    const existing = savedBySlot[slotKey(academicYear, semester)];
+    if (existing) {
+      setUrl(existing.shareUrl);
+      load(existing.shareUrl);
+    } else {
+      setUrl("");
+      setLessons(null);
+      setError(null);
+      setProblems([]);
+      setSaveState("idle");
+    }
+  }
+
+  async function saveTimetable(academicYear: number, semester: number) {
+    setSavingSlot({ academicYear, semester });
+    setSaveState("saving");
+    try {
+      const res = await fetch("/api/timetable/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ academicYear, semester, shareUrl: url }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveState("idle");
+        return;
+      }
+      setSavedBySlot((prev) => ({ ...prev, [slotKey(academicYear, semester)]: data }));
+      setSelectedSlot({ academicYear, semester });
+      setSaveState("saved");
+    } catch {
+      setSaveState("idle");
+    } finally {
+      setSavingSlot(null);
     }
   }
 
@@ -105,6 +198,14 @@ export function TimetablePanel() {
   const gridHeight = (END_MIN - START_MIN) * PX_PER_MIN;
   const hourMarks: number[] = [];
   for (let m = START_MIN; m <= END_MIN; m += 60) hourMarks.push(m);
+
+  // Show the save prompt whenever a timetable is loaded and it doesn't
+  // already exactly match what's saved for the currently selected slot -
+  // saving is always a deliberate click, never automatic.
+  const matchesSavedSelectedSlot =
+    selectedSlot &&
+    savedBySlot[slotKey(selectedSlot.academicYear, selectedSlot.semester)]?.shareUrl === url;
+  const showSavePrompt = Boolean(lessons && lessons.length > 0 && !matchesSavedSelectedSlot);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -125,15 +226,47 @@ export function TimetablePanel() {
       </header>
 
       <main className="animate-fade-in p-6">
-        <div className="flex max-w-2xl gap-2">
+        <div className="max-w-2xl">
+          <div className="text-[12px] font-semibold text-text2">Saved timetables</div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {SLOTS.map((slot) => {
+              const key = slotKey(slot.academicYear, slot.semester);
+              const isSaved = Boolean(savedBySlot[key]);
+              const isSelected =
+                selectedSlot?.academicYear === slot.academicYear &&
+                selectedSlot?.semester === slot.semester;
+              return (
+                <button
+                  key={key}
+                  onClick={() => selectSlot(slot.academicYear, slot.semester)}
+                  className={`rounded-full border px-2.5 py-1 text-[12px] font-semibold transition-colors duration-150 ${
+                    isSelected
+                      ? "border-accent bg-accent text-white"
+                      : isSaved
+                        ? "border-border bg-seg-bg text-text1 hover:bg-border"
+                        : "border-dashed border-border text-text3 hover:text-text2"
+                  }`}
+                >
+                  Year {slot.academicYear} · Sem {slot.semester}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 flex max-w-2xl gap-2">
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://nusmods.com/timetable/sem-1/share?CS1010S=LEC:1,TUT:3&..."
+            placeholder={
+              selectedSlot
+                ? `Paste your NUSMods link for Year ${selectedSlot.academicYear} Sem ${selectedSlot.semester}`
+                : "https://nusmods.com/timetable/sem-1/share?CS1010S=LEC:1,TUT:3&..."
+            }
             className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-text1 outline-none focus:border-accent"
           />
           <button
-            onClick={load}
+            onClick={() => load(url)}
             disabled={loading || !url.trim()}
             className="shrink-0 rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-50"
           >
@@ -155,6 +288,34 @@ export function TimetablePanel() {
             {problems.map((p) => (
               <div key={p}>{p}</div>
             ))}
+          </div>
+        ) : null}
+
+        {showSavePrompt ? (
+          <div className="mt-3 flex max-w-2xl flex-wrap items-center gap-2 rounded-lg border border-border bg-seg-bg px-3 py-2 text-[12.5px] text-text2">
+            <span>Save this timetable for future reference?</span>
+            <div className="flex flex-wrap gap-1">
+              {SLOTS.map((slot) => {
+                const key = slotKey(slot.academicYear, slot.semester);
+                const isTarget =
+                  savingSlot?.academicYear === slot.academicYear &&
+                  savingSlot?.semester === slot.semester;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => saveTimetable(slot.academicYear, slot.semester)}
+                    disabled={saveState === "saving"}
+                    className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11.5px] font-semibold text-text1 transition-colors duration-150 hover:bg-accent hover:text-white disabled:opacity-50"
+                  >
+                    {isTarget && saveState === "saving" ? "Saving…" : `Y${slot.academicYear} S${slot.semester}`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : saveState === "saved" && selectedSlot ? (
+          <div className="mt-3 max-w-2xl rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-800">
+            Saved to Year {selectedSlot.academicYear} · Sem {selectedSlot.semester}.
           </div>
         ) : null}
 
