@@ -73,6 +73,8 @@ export function PlannerBoard({
   const router = useRouter();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newSemesterOpen, setNewSemesterOpen] = useState(false);
+  const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const semesters = groupBySemester(semesterEntries);
   const groupOrder = ["Common Curriculum", "Programme Requirements", "Unrestricted Electives"];
@@ -83,6 +85,18 @@ export function PlannerBoard({
 
   async function deleteEntry(id: string) {
     await fetch(`/api/planner/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  // Drag-and-drop between semester columns reuses the same PATCH endpoint
+  // that handles status changes - moving a module is just updating which
+  // year/semester it belongs to.
+  async function moveEntry(id: string, academicYear: number, semester: number) {
+    await fetch(`/api/planner/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ academicYear, semester }),
+    });
     router.refresh();
   }
 
@@ -213,10 +227,31 @@ export function PlannerBoard({
         </aside>
 
         <main className="flex flex-1 gap-4 overflow-x-auto p-5">
-          {semesters.map((col) => (
+          {semesters.map((col) => {
+            const colKey = `${col.academicYear}-${col.semester}`;
+            return (
             <div
-              key={`${col.academicYear}-${col.semester}`}
-              className="w-[220px] shrink-0 rounded-xl border border-border bg-surface p-3"
+              key={colKey}
+              onDragOver={(e) => {
+                if (!draggingEntryId) return;
+                e.preventDefault();
+                setDragOverKey(colKey);
+              }}
+              onDragLeave={() =>
+                setDragOverKey((k) => (k === colKey ? null : k))
+              }
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/plain");
+                setDragOverKey(null);
+                setDraggingEntryId(null);
+                if (id) moveEntry(id, col.academicYear, col.semester);
+              }}
+              className={`w-[220px] shrink-0 rounded-xl border p-3 transition-colors ${
+                dragOverKey === colKey
+                  ? "border-accent bg-accent/5"
+                  : "border-border bg-surface"
+              }`}
             >
               <div className="mb-2 text-[12.5px] font-semibold text-text1">
                 Year {col.academicYear} · Sem {col.semester}
@@ -225,7 +260,19 @@ export function PlannerBoard({
                 {col.entries.map((entry) => (
                   <div
                     key={entry.id}
-                    className="rounded-lg border border-border bg-page p-2"
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggingEntryId(entry.id);
+                      e.dataTransfer.setData("text/plain", entry.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setDraggingEntryId(null);
+                      setDragOverKey(null);
+                    }}
+                    className={`cursor-grab rounded-lg border border-border bg-page p-2 active:cursor-grabbing ${
+                      draggingEntryId === entry.id ? "opacity-40" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -263,7 +310,7 @@ export function PlannerBoard({
                 ))}
               </div>
 
-              {addingTo === `${col.academicYear}-${col.semester}` ? (
+              {addingTo === colKey ? (
                 <AddEntryForm
                   academicYear={col.academicYear}
                   semester={col.semester}
@@ -272,14 +319,15 @@ export function PlannerBoard({
                 />
               ) : (
                 <button
-                  onClick={() => setAddingTo(`${col.academicYear}-${col.semester}`)}
+                  onClick={() => setAddingTo(colKey)}
                   className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] font-medium text-text2"
                 >
                   + Add module
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
 
           <div className="w-[220px] shrink-0">
             {newSemesterOpen ? (
