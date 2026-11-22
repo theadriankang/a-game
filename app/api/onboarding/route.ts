@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
 const onboardingSchema = z.object({
@@ -20,8 +19,7 @@ const EXEMPTION_YEAR = 0;
 const EXEMPTION_SEMESTER = 0;
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
