@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { ALL_MINORS } from "@/lib/minors/registry";
+import { ALL_MINORS, ALL_SECOND_MAJORS } from "@/lib/minors/registry";
 import { computeMinorFit } from "@/lib/minors/fit";
 import { MinorsPanel } from "./minors-panel";
 
@@ -23,13 +23,11 @@ export default async function MinorsPage() {
     where: { userId },
   });
 
-  const fits = ALL_MINORS.map((minor) =>
-    computeMinorFit(
-      entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status })),
-      minor,
-      user.programme
-    )
+  const simpleEntries = entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status }));
+  const minorFits = ALL_MINORS.map((minor) => computeMinorFit(simpleEntries, minor, user.programme));
+  const secondMajorFits = ALL_SECOND_MAJORS.map((structure) =>
+    computeMinorFit(simpleEntries, structure, user.programme)
   );
 
-  return <MinorsPanel fits={fits} />;
+  return <MinorsPanel minorFits={minorFits} secondMajorFits={secondMajorFits} />;
 }

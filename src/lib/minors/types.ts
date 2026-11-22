@@ -19,6 +19,10 @@ export type MinorRequirementGroup = {
 export type MinorStructure = {
   id: string;
   label: string;
+  // "second-major" structures are modeled with the same shape (groups of
+  // MC requirements) but represent a much larger commitment - kept
+  // visually separate in the UI rather than mixed in with minors.
+  kind?: "minor" | "second-major";
   department: string;
   totalMcMin: number;
   totalMcMax?: number;
