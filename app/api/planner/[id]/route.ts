@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { dbErrorResponse } from "@/lib/api-error";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
@@ -35,26 +36,30 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const existing = await assertOwnership(id, userId);
-  if (!existing) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  try {
+    const existing = await assertOwnership(id, userId);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
+
+    const body = await request.json().catch(() => null);
+    const parsed = updateEntrySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+        { status: 400 }
+      );
+    }
+
+    const entry = await prisma.plannerEntry.update({
+      where: { id },
+      data: parsed.data,
+    });
+
+    return NextResponse.json({ entry });
+  } catch (error) {
+    return dbErrorResponse(error);
   }
-
-  const body = await request.json().catch(() => null);
-  const parsed = updateEntrySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
-
-  const entry = await prisma.plannerEntry.update({
-    where: { id },
-    data: parsed.data,
-  });
-
-  return NextResponse.json({ entry });
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
@@ -64,12 +69,16 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const existing = await assertOwnership(id, userId);
-  if (!existing) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  try {
+    const existing = await assertOwnership(id, userId);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
+
+    await prisma.plannerEntry.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return dbErrorResponse(error);
   }
-
-  await prisma.plannerEntry.delete({ where: { id } });
-
-  return NextResponse.json({ ok: true });
 }

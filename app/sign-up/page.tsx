@@ -18,36 +18,43 @@ export default function SignUpPage() {
     setError(null);
     setLoading(true);
 
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      // A failed request can come back as a non-JSON error page (a network
+      // hiccup, or the server erroring before it returns real JSON) rather
+      // than the { error } shape this form expects — treat that the same
+      // as any other failure instead of letting the parse throw uncaught.
+      const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        // Account was created but auto sign-in failed for some reason —
+        // send them to sign in manually rather than losing the new account.
+        router.push("/sign-in");
+        return;
+      }
+
+      router.push("/onboarding");
+      router.refresh();
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (result?.error) {
-      // Account was created but auto sign-in failed for some reason —
-      // send them to sign in manually rather than losing the new account.
-      router.push("/sign-in");
-      return;
-    }
-
-    router.push("/onboarding");
-    router.refresh();
   }
 
   return (

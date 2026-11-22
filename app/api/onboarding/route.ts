@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { dbErrorResponse } from "@/lib/api-error";
 
 const onboardingSchema = z.object({
   programme: z.string().trim().min(1).max(100),
@@ -36,40 +37,44 @@ export async function POST(request: Request) {
   const { programme, priorDiploma, suBudgetTotalMc, exemptions } =
     parsed.data;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: userId },
-      data: {
-        programme,
-        priorDiploma: priorDiploma || null,
-        suBudgetTotalMc,
-      },
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          programme,
+          priorDiploma: priorDiploma || null,
+          suBudgetTotalMc,
+        },
+      });
 
-    // Re-running onboarding shouldn't duplicate exemption rows: clear the
-    // placeholder slot and re-create from the submitted list.
-    await tx.plannerEntry.deleteMany({
-      where: {
-        userId,
-        academicYear: EXEMPTION_YEAR,
-        semester: EXEMPTION_SEMESTER,
-      },
-    });
-
-    if (exemptions.length > 0) {
-      await tx.plannerEntry.createMany({
-        data: exemptions.map((moduleCode) => ({
+      // Re-running onboarding shouldn't duplicate exemption rows: clear the
+      // placeholder slot and re-create from the submitted list.
+      await tx.plannerEntry.deleteMany({
+        where: {
           userId,
-          moduleCode,
-          label: moduleCode,
-          mc: 0, // exemptions don't consume MC the user needs to plan for
           academicYear: EXEMPTION_YEAR,
           semester: EXEMPTION_SEMESTER,
-          status: "COMPLETED" as const,
-        })),
+        },
       });
-    }
-  });
 
-  return NextResponse.json({ ok: true });
+      if (exemptions.length > 0) {
+        await tx.plannerEntry.createMany({
+          data: exemptions.map((moduleCode) => ({
+            userId,
+            moduleCode,
+            label: moduleCode,
+            mc: 0, // exemptions don't consume MC the user needs to plan for
+            academicYear: EXEMPTION_YEAR,
+            semester: EXEMPTION_SEMESTER,
+            status: "COMPLETED" as const,
+          })),
+        });
+      }
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return dbErrorResponse(error);
+  }
 }

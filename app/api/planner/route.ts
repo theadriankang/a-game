@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { dbErrorResponse } from "@/lib/api-error";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
@@ -28,12 +29,16 @@ export async function GET() {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const entries = await prisma.plannerEntry.findMany({
-    where: { userId },
-    orderBy: [{ academicYear: "asc" }, { semester: "asc" }, { createdAt: "asc" }],
-  });
+  try {
+    const entries = await prisma.plannerEntry.findMany({
+      where: { userId },
+      orderBy: [{ academicYear: "asc" }, { semester: "asc" }, { createdAt: "asc" }],
+    });
 
-  return NextResponse.json({ entries });
+    return NextResponse.json({ entries });
+  } catch (error) {
+    return dbErrorResponse(error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -54,18 +59,22 @@ export async function POST(request: Request) {
   const { moduleCode, label, mc, academicYear, semester, status, requirementTag } =
     parsed.data;
 
-  const entry = await prisma.plannerEntry.create({
-    data: {
-      userId,
-      moduleCode: moduleCode || null,
-      label,
-      mc,
-      academicYear,
-      semester,
-      status,
-      requirementTag: requirementTag || null,
-    },
-  });
+  try {
+    const entry = await prisma.plannerEntry.create({
+      data: {
+        userId,
+        moduleCode: moduleCode || null,
+        label,
+        mc,
+        academicYear,
+        semester,
+        status,
+        requirementTag: requirementTag || null,
+      },
+    });
 
-  return NextResponse.json({ entry }, { status: 201 });
+    return NextResponse.json({ entry }, { status: 201 });
+  } catch (error) {
+    return dbErrorResponse(error);
+  }
 }
