@@ -8,6 +8,8 @@ export function SettingsPanel() {
   const [connecting, setConnecting] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingUpWebhook, setSettingUpWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<string | null>(null);
 
   async function refreshStatus() {
     const res = await fetch("/api/telegram/status");
@@ -43,6 +45,22 @@ export function SettingsPanel() {
     await fetch("/api/telegram/status", { method: "DELETE" });
     setConnected(false);
     setAwaitingConfirm(false);
+  }
+
+  async function runWebhookSetup() {
+    setSettingUpWebhook(true);
+    setWebhookResult(null);
+    try {
+      const res = await fetch("/api/telegram/setup-webhook", { method: "POST" });
+      const data = await res.json();
+      setWebhookResult(
+        res.ok ? "Done - Telegram is now pointed at this deployment." : data.error ?? "Failed."
+      );
+    } catch {
+      setWebhookResult("Request failed.");
+    } finally {
+      setSettingUpWebhook(false);
+    }
   }
 
   return (
@@ -105,6 +123,23 @@ export function SettingsPanel() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-dashed border-border p-4">
+          <div className="text-[13px] font-semibold text-text1">One-time deployment setup</div>
+          <p className="mt-1 text-[12px] text-text3">
+            Run this once after setting the Telegram env vars in Vercel (and again if the app&rsquo;s
+            domain ever changes) - it just tells Telegram where to send bot messages. Anyone signed
+            in can run it; it doesn&rsquo;t touch any account data.
+          </p>
+          <button
+            onClick={runWebhookSetup}
+            disabled={settingUpWebhook}
+            className="mt-2.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg disabled:opacity-50"
+          >
+            {settingUpWebhook ? "Setting up…" : "Set up Telegram webhook"}
+          </button>
+          {webhookResult ? <div className="mt-2 text-[12px] text-text2">{webhookResult}</div> : null}
         </div>
       </div>
     </div>
