@@ -147,6 +147,9 @@ export function SimulatorPanel({
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [snapshotName, setSnapshotName] = useState("");
+  const [targetSemesters, setTargetSemesters] = useState<6 | 7 | 8>(8);
+  const [autoPlanning, setAutoPlanning] = useState(false);
+  const [autoPlanWarnings, setAutoPlanWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     setSnapshots(loadSnapshotsFromStorage());
@@ -183,6 +186,57 @@ export function SimulatorPanel({
 
   function deleteSnapshot(id: string) {
     persistSnapshots(snapshots.filter((s) => s.id !== id));
+  }
+
+  async function autoPlanRemaining() {
+    setAutoPlanning(true);
+    setAutoPlanWarnings([]);
+    try {
+      const res = await fetch("/api/simulator/auto-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries: entries.map((e) => ({
+            moduleCode: e.moduleCode,
+            mc: e.mc,
+            status: e.status,
+            academicYear: e.academicYear,
+            semester: e.semester,
+          })),
+          targetTotalSemesters: targetSemesters,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAutoPlanWarnings([data.error ?? "Couldn't build a draft plan."]);
+        return;
+      }
+      const added: SimEntry[] = data.addedEntries.map(
+        (e: {
+          moduleCode: string | null;
+          label: string;
+          mc: number;
+          academicYear: number;
+          semester: number;
+          requirementTag: string | null;
+        }) => ({
+          id: makeLocalId(),
+          moduleCode: e.moduleCode,
+          label: e.label,
+          mc: e.mc,
+          academicYear: e.academicYear,
+          semester: e.semester,
+          status: "PLANNED" as Status,
+          requirementTag: e.requirementTag,
+        })
+      );
+      setEntries((prev) => [...prev, ...added]);
+      setAutoPlanWarnings(data.warnings ?? []);
+    } catch {
+      setAutoPlanWarnings(["Couldn't reach the server. Try again."]);
+    } finally {
+      setAutoPlanning(false);
+    }
   }
 
   const columns = buildColumns(entries, extraYears);
@@ -269,6 +323,45 @@ export function SimulatorPanel({
               estimate at ~{ASSUMED_MC_PER_SEMESTER} MC/semester, not a real
               academic-load rule.
             </div>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-border bg-surface p-3">
+            <div className="text-[13px] font-semibold text-text1">Plan my remaining semesters</div>
+            <p className="mt-1 text-[11.5px] text-text3">
+              Drafts the rest of your plan from where you left off - real
+              modules in a best-effort prerequisite order for fixed
+              requirements, clearly-labeled placeholders where there&rsquo;s
+              no single right module (GE pillars, electives). A draft to
+              react to, not a guarantee - always re-check prerequisites
+              yourself.
+            </p>
+            <div className="mt-2 inline-flex w-fit gap-0.5 rounded-lg border border-border bg-seg-bg p-0.5">
+              {([6, 7, 8] as const).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setTargetSemesters(n)}
+                  className={`rounded-md px-2.5 py-1 text-[11.5px] font-semibold transition-colors duration-150 ${
+                    targetSemesters === n ? "bg-accent text-white" : "text-text2 hover:text-text1"
+                  }`}
+                >
+                  {n === 6 ? "3 yrs" : n === 7 ? "3.5 yrs" : "4 yrs"}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={autoPlanRemaining}
+              disabled={autoPlanning}
+              className="mt-2 w-full rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-50"
+            >
+              {autoPlanning ? "Planning…" : "Surprise me"}
+            </button>
+            {autoPlanWarnings.length > 0 ? (
+              <ul className="mt-2 flex flex-col gap-1 text-[11px] text-amber-700">
+                {autoPlanWarnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           <div className="text-[13px] font-semibold text-text1">
