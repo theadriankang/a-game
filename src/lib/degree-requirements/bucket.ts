@@ -10,7 +10,7 @@ export type PlannableEntry = {
   requirementTag: string | null;
 };
 
-export type BucketProgress = {
+export type BucketProgress<T extends PlannableEntry = PlannableEntry> = {
   bucketId: string;
   label: string;
   group: string;
@@ -18,7 +18,7 @@ export type BucketProgress = {
   completedMc: number;
   plannedMc: number;
   reservedMc: number;
-  entries: PlannableEntry[];
+  entries: T[];
 };
 
 function findBucketForEntry(
@@ -47,11 +47,11 @@ function findBucketForEntry(
   return fallbackBucketId;
 }
 
-export function bucketPlannerEntries(
-  entries: PlannableEntry[],
+export function bucketPlannerEntries<T extends PlannableEntry>(
+  entries: T[],
   structure: DegreeStructure
-): BucketProgress[] {
-  const progress = new Map<string, BucketProgress>(
+): BucketProgress<T>[] {
+  const progress = new Map<string, BucketProgress<T>>(
     structure.buckets.map((bucket) => [
       bucket.id,
       {
@@ -62,7 +62,7 @@ export function bucketPlannerEntries(
         completedMc: 0,
         plannedMc: 0,
         reservedMc: 0,
-        entries: [],
+        entries: [] as T[],
       },
     ])
   );
@@ -100,4 +100,18 @@ export function isCompulsoryModuleCode(
   return structure.buckets.some(
     (bucket) => !bucket.manualOnly && bucket.moduleCodes?.includes(code)
   );
+}
+
+// A short, human-readable description of what counts toward a bucket -
+// shown in the sidebar so a student can tell at a glance which module
+// codes to look out for, without having to guess from the bucket name.
+export function describeBucketMatch(bucket: RequirementBucketDef): string {
+  if (bucket.manualOnly) return "Set manually - no fixed code list";
+
+  const parts: string[] = [];
+  if (bucket.moduleCodes?.length) parts.push(bucket.moduleCodes.join(", "));
+  if (bucket.codePrefixes?.length) {
+    parts.push(bucket.codePrefixes.map((prefix) => `${prefix}-prefixed`).join(" or "));
+  }
+  return parts.length > 0 ? parts.join(" · ") : "Any module not counted elsewhere";
 }

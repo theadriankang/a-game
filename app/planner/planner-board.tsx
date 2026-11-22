@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import type { BucketProgress } from "@/lib/degree-requirements/bucket";
+import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
+import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
 
 type Entry = {
@@ -30,7 +31,8 @@ type Props = {
   suBudgetUsedMc: number;
   semesterEntries: Entry[];
   exemptionEntries: Entry[];
-  buckets: BucketProgress[];
+  buckets: BucketProgress<Entry>[];
+  bucketDefs: RequirementBucketDef[];
   degreeLabel: string;
   degreeTotalMc: number;
   violationsByEntryId: Record<string, PrereqViolation[]>;
@@ -50,22 +52,31 @@ const STATUS_CLASS: Record<Entry["status"], string> = {
   RESERVED: "bg-seg-bg text-text2 border border-border",
 };
 
-function groupBySemester(entries: Entry[]) {
-  const map = new Map<string, { academicYear: number; semester: number; entries: Entry[] }>();
-  for (const entry of entries) {
-    const key = `${entry.academicYear}-${entry.semester}`;
-    if (!map.has(key)) {
-      map.set(key, {
-        academicYear: entry.academicYear,
-        semester: entry.semester,
-        entries: [],
+// The grid always shows the standard 4 years x 2 semesters, whether or
+// not a column has any modules in it yet - so creating a "semester" isn't
+// a step on its own, you just add modules straight into whichever column
+// you want. `extraYears` (years a user has explicitly added beyond the
+// standard 4, e.g. for an overrun year) and any entry that happens to
+// already live beyond year 4 both extend the grid too.
+const BASE_YEARS = [1, 2, 3, 4];
+const SEMESTERS = [1, 2];
+
+function buildColumns(entries: Entry[], extraYears: number[]) {
+  const years = Array.from(
+    new Set([...BASE_YEARS, ...extraYears, ...entries.map((e) => e.academicYear)])
+  ).sort((a, b) => a - b);
+
+  const columns: { academicYear: number; semester: number; entries: Entry[] }[] = [];
+  for (const year of years) {
+    for (const sem of SEMESTERS) {
+      columns.push({
+        academicYear: year,
+        semester: sem,
+        entries: entries.filter((e) => e.academicYear === year && e.semester === sem),
       });
     }
-    map.get(key)!.entries.push(entry);
   }
-  return Array.from(map.values()).sort(
-    (a, b) => a.academicYear - b.academicYear || a.semester - b.semester
-  );
+  return columns;
 }
 
 export function PlannerBoard({
@@ -75,6 +86,7 @@ export function PlannerBoard({
   semesterEntries,
   exemptionEntries,
   buckets,
+  bucketDefs,
   degreeLabel,
   degreeTotalMc,
   violationsByEntryId,
@@ -83,10 +95,11 @@ export function PlannerBoard({
 }: Props) {
   const router = useRouter();
   const [addingTo, setAddingTo] = useState<string | null>(null);
-  const [newSemesterOpen, setNewSemesterOpen] = useState(false);
+  const [extraYears, setExtraYears] = useState<number[]>([]);
   const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [view, setView] = useState<"semester" | "requirement">("semester");
   const [requestingCode, setRequestingCode] = useState<string | null>(null);
 
   async function requestAnalysis(moduleCode: string) {
@@ -96,7 +109,7 @@ export function PlannerBoard({
     router.refresh();
   }
 
-  const semesters = groupBySemester(semesterEntries);
+  const semesters = buildColumns(semesterEntries, extraYears);
   const groupOrder = ["Common Curriculum", "Programme Requirements", "Unrestricted Electives"];
   const bucketsByGroup = groupOrder.map((group) => ({
     group,
@@ -105,6 +118,15 @@ export function PlannerBoard({
 
   async function deleteEntry(id: string) {
     await fetch(`/api/planner/${id}`, { method: "DELETE" });
+    router.refresh();
+  }
+
+  async function changeStatus(id: string, status: Entry["status"]) {
+    await fetch(`/api/planner/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
     router.refresh();
   }
 
@@ -134,7 +156,6 @@ export function PlannerBoard({
       body: JSON.stringify(form),
     });
     setAddingTo(null);
-    setNewSemesterOpen(false);
     router.refresh();
   }
 
@@ -188,24 +209,32 @@ export function PlannerBoard({
                 {group}
               </div>
               <div className="flex flex-col gap-2.5">
-                {groupBuckets.map((bucket) => (
-                  <div key={bucket.bucketId}>
-                    <div className="flex items-baseline justify-between text-[12.5px]">
-                      <span className="text-text1">{bucket.label}</span>
-                      <span className="tabular-nums text-text3">
-                        {bucket.completedMc}/{bucket.requiredMc}
-                      </span>
+                {groupBuckets.map((bucket) => {
+                  const def = bucketDefs.find((b) => b.id === bucket.bucketId);
+                  return (
+                    <div key={bucket.bucketId}>
+                      <div className="flex items-baseline justify-between text-[12.5px]">
+                        <span className="text-text1">{bucket.label}</span>
+                        <span className="tabular-nums text-text3">
+                          {bucket.completedMc}/{bucket.requiredMc}
+                        </span>
+                      </div>
+                      {def ? (
+                        <div className="mt-0.5 text-[10.5px] leading-snug text-text3">
+                          {describeBucketMatch(def)}
+                        </div>
+                      ) : null}
+                      <div className="mt-1 h-[5px] rounded-full bg-border">
+                        <div
+                          className="h-full rounded-full bg-green transition-[width] duration-300"
+                          style={{
+                            width: `${Math.min(100, (bucket.completedMc / Math.max(1, bucket.requiredMc)) * 100)}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="mt-1 h-[5px] rounded-full bg-border">
-                      <div
-                        className="h-full rounded-full bg-green"
-                        style={{
-                          width: `${Math.min(100, (bucket.completedMc / Math.max(1, bucket.requiredMc)) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -246,7 +275,79 @@ export function PlannerBoard({
           )}
         </aside>
 
-        <main className="flex flex-1 gap-4 overflow-x-auto p-5">
+        <main className="flex flex-1 flex-col overflow-x-auto p-5">
+          <div className="mb-4 inline-flex w-fit gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+            {(["semester", "requirement"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`rounded-md px-3 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
+                  view === v ? "bg-accent text-white" : "text-text2 hover:text-text1"
+                }`}
+              >
+                {v === "semester" ? "By semester" : "By requirement"}
+              </button>
+            ))}
+          </div>
+
+          {view === "requirement" ? (
+            <div className="flex max-w-3xl flex-col gap-5">
+              {bucketsByGroup.map(({ group, buckets: groupBuckets }) => (
+                <div key={group}>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text3">
+                    {group}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {groupBuckets.map((bucket) => (
+                      <div
+                        key={bucket.bucketId}
+                        className="rounded-xl border border-border bg-surface p-3"
+                      >
+                        <div className="mb-2 flex items-baseline justify-between">
+                          <span className="text-[13px] font-semibold text-text1">{bucket.label}</span>
+                          <span className="tabular-nums text-[11.5px] text-text3">
+                            {bucket.completedMc}/{bucket.requiredMc} MC
+                          </span>
+                        </div>
+                        {bucket.entries.length === 0 ? (
+                          <div className="text-[11.5px] text-text3">No modules assigned yet.</div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {bucket.entries.map((entry) => (
+                              <EntryCard
+                                key={entry.id}
+                                entry={entry}
+                                draggable={false}
+                                isDragging={false}
+                                violations={violationsByEntryId[entry.id]}
+                                analysis={entry.moduleCode ? analysisByCode[entry.moduleCode] : undefined}
+                                pending={
+                                  entry.moduleCode
+                                    ? pendingAnalysisCodes.includes(entry.moduleCode)
+                                    : false
+                                }
+                                expanded={expandedCode === entry.moduleCode}
+                                onToggleExpand={() =>
+                                  setExpandedCode((c) => (c === entry.moduleCode ? null : entry.moduleCode))
+                                }
+                                requesting={requestingCode === entry.moduleCode}
+                                onRequestAnalysis={() =>
+                                  entry.moduleCode && requestAnalysis(entry.moduleCode)
+                                }
+                                onDelete={() => deleteEntry(entry.id)}
+                                onStatusChange={(status) => changeStatus(entry.id, status)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+          <div className="flex gap-4">
           {semesters.map((col) => {
             const colKey = `${col.academicYear}-${col.semester}`;
             return (
@@ -278,9 +379,11 @@ export function PlannerBoard({
               </div>
               <div className="flex flex-col gap-2">
                 {col.entries.map((entry) => (
-                  <div
+                  <EntryCard
                     key={entry.id}
+                    entry={entry}
                     draggable
+                    isDragging={draggingEntryId === entry.id}
                     onDragStart={(e) => {
                       setDraggingEntryId(entry.id);
                       e.dataTransfer.setData("text/plain", entry.id);
@@ -290,95 +393,18 @@ export function PlannerBoard({
                       setDraggingEntryId(null);
                       setDragOverKey(null);
                     }}
-                    className={`cursor-grab rounded-lg border border-border bg-page p-2 active:cursor-grabbing ${
-                      draggingEntryId === entry.id ? "opacity-40" : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="text-[13px] font-semibold">
-                          {entry.moduleCode ?? entry.label}
-                        </div>
-                        <div className="text-[11px] text-text3">
-                          {entry.mc} MC
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => deleteEntry(entry.id)}
-                        aria-label={`Remove ${entry.label}`}
-                        className="text-[11px] text-text3 hover:text-red"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <span
-                        className={`inline-block rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold ${STATUS_CLASS[entry.status]}`}
-                      >
-                        {STATUS_LABEL[entry.status]}
-                      </span>
-                      {violationsByEntryId[entry.id]?.length ? (
-                        <span
-                          title={violationsByEntryId[entry.id].map((v) => v.message).join(" ")}
-                          className="inline-flex cursor-help items-center rounded-full border border-red-border bg-red-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-red"
-                        >
-                          ⚠ Check
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {entry.moduleCode ? (
-                      <div className="mt-1.5">
-                        <button
-                          onClick={() =>
-                            setExpandedCode((c) => (c === entry.moduleCode ? null : entry.moduleCode))
-                          }
-                          className="text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
-                        >
-                          {expandedCode === entry.moduleCode ? "Hide community signal" : "Community signal"}
-                        </button>
-                        {expandedCode === entry.moduleCode ? (
-                          <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
-                            {analysisByCode[entry.moduleCode] ? (
-                              <>
-                                <p>{analysisByCode[entry.moduleCode].summary}</p>
-                                {analysisByCode[entry.moduleCode].status === "THIN_DATA" ? (
-                                  <p className="mt-1 italic text-text3">
-                                    Not much public discussion found for this one.
-                                  </p>
-                                ) : null}
-                                {analysisByCode[entry.moduleCode].tags.length > 0 ? (
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {analysisByCode[entry.moduleCode].tags.map((tag) => (
-                                      <span
-                                        key={tag}
-                                        className="rounded-full bg-page px-1.5 py-0.5 text-[10px]"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : null}
-                                <p className="mt-1 text-[10px] text-text3">
-                                  AI-synthesized from public discussion, not an official rating.
-                                </p>
-                              </>
-                            ) : pendingAnalysisCodes.includes(entry.moduleCode) ? (
-                              <p>Analysis queued - check back soon.</p>
-                            ) : (
-                              <button
-                                onClick={() => requestAnalysis(entry.moduleCode!)}
-                                disabled={requestingCode === entry.moduleCode}
-                                className="font-medium text-accent disabled:opacity-50"
-                              >
-                                {requestingCode === entry.moduleCode ? "Queuing…" : "Request analysis"}
-                              </button>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+                    violations={violationsByEntryId[entry.id]}
+                    analysis={entry.moduleCode ? analysisByCode[entry.moduleCode] : undefined}
+                    pending={entry.moduleCode ? pendingAnalysisCodes.includes(entry.moduleCode) : false}
+                    expanded={expandedCode === entry.moduleCode}
+                    onToggleExpand={() =>
+                      setExpandedCode((c) => (c === entry.moduleCode ? null : entry.moduleCode))
+                    }
+                    requesting={requestingCode === entry.moduleCode}
+                    onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
+                    onDelete={() => deleteEntry(entry.id)}
+                    onStatusChange={(status) => changeStatus(entry.id, status)}
+                  />
                 ))}
               </div>
 
@@ -392,7 +418,7 @@ export function PlannerBoard({
               ) : (
                 <button
                   onClick={() => setAddingTo(colKey)}
-                  className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] font-medium text-text2"
+                  className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] font-medium text-text2 transition-colors duration-150 hover:border-accent hover:text-accent"
                 >
                   + Add module
                 </button>
@@ -401,20 +427,251 @@ export function PlannerBoard({
             );
           })}
 
-          <div className="w-[220px] shrink-0">
-            {newSemesterOpen ? (
-              <NewSemesterForm onSubmit={addEntry} onCancel={() => setNewSemesterOpen(false)} />
-            ) : (
-              <button
-                onClick={() => setNewSemesterOpen(true)}
-                className="h-full min-h-[120px] w-full rounded-xl border border-dashed border-border text-[12.5px] font-medium text-text2"
-              >
-                + Add semester
-              </button>
-            )}
+          <button
+            onClick={() => {
+              const maxYear = Math.max(
+                4,
+                ...extraYears,
+                ...semesterEntries.map((e) => e.academicYear)
+              );
+              setExtraYears((prev) => [...prev, maxYear + 1]);
+            }}
+            className="h-full min-h-[120px] w-[220px] shrink-0 rounded-xl border border-dashed border-border text-[12.5px] font-medium text-text2 transition-colors duration-150 hover:border-accent hover:text-accent"
+          >
+            + Add another year
+          </button>
           </div>
+          )}
         </main>
       </div>
+    </div>
+  );
+}
+
+// Shared card used by both the "by semester" and "by requirement" views -
+// same module info, status control and community-signal panel either way;
+// only the semester view makes it draggable.
+function EntryCard({
+  entry,
+  draggable,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+  violations,
+  analysis,
+  pending,
+  expanded,
+  onToggleExpand,
+  requesting,
+  onRequestAnalysis,
+  onDelete,
+  onStatusChange,
+}: {
+  entry: Entry;
+  draggable: boolean;
+  isDragging: boolean;
+  onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: () => void;
+  violations: PrereqViolation[] | undefined;
+  analysis: ModuleAnalysisData | undefined;
+  pending: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  requesting: boolean;
+  onRequestAnalysis: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: Entry["status"]) => void;
+}) {
+  const showTitle = Boolean(entry.label && entry.label !== entry.moduleCode);
+
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`animate-fade-slide-in rounded-lg border border-border bg-page p-2 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm ${
+        draggable ? "cursor-grab active:cursor-grabbing" : ""
+      } ${isDragging ? "opacity-40" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold">{entry.moduleCode ?? entry.label}</div>
+          {showTitle ? <div className="truncate text-[11px] text-text3">{entry.label}</div> : null}
+          <div className="text-[11px] text-text3">{entry.mc} MC</div>
+        </div>
+        <button
+          onClick={onDelete}
+          aria-label={`Remove ${entry.label}`}
+          className="shrink-0 text-[11px] text-text3 transition-colors duration-150 hover:text-red"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <select
+          value={entry.status}
+          onChange={(e) => onStatusChange(e.target.value as Entry["status"])}
+          className={`rounded-full border px-1.5 py-0.5 text-[10.5px] font-semibold outline-none transition-colors ${STATUS_CLASS[entry.status]}`}
+        >
+          <option value="PLANNED">{STATUS_LABEL.PLANNED}</option>
+          <option value="COMPLETED">{STATUS_LABEL.COMPLETED}</option>
+          <option value="RESERVED">{STATUS_LABEL.RESERVED}</option>
+        </select>
+        {violations?.length ? (
+          <span
+            title={violations.map((v) => v.message).join(" ")}
+            className="inline-flex cursor-help items-center rounded-full border border-red-border bg-red-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-red"
+          >
+            ⚠ Check
+          </span>
+        ) : null}
+      </div>
+
+      {entry.moduleCode ? (
+        <div className="mt-1.5">
+          <button
+            onClick={onToggleExpand}
+            className="text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
+          >
+            {expanded ? "Hide community signal" : "Community signal"}
+          </button>
+          {expanded ? (
+            <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
+              {analysis ? (
+                <>
+                  <p>{analysis.summary}</p>
+                  {analysis.status === "THIN_DATA" ? (
+                    <p className="mt-1 italic text-text3">
+                      Not much public discussion found for this one.
+                    </p>
+                  ) : null}
+                  {analysis.tags.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {analysis.tags.map((tag) => (
+                        <span key={tag} className="rounded-full bg-page px-1.5 py-0.5 text-[10px]">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="mt-1 text-[10px] text-text3">
+                    AI-synthesized from public discussion, not an official rating.
+                  </p>
+                </>
+              ) : pending ? (
+                <p>Analysis queued - check back soon.</p>
+              ) : (
+                <button
+                  onClick={onRequestAnalysis}
+                  disabled={requesting}
+                  className="font-medium text-accent disabled:opacity-50"
+                >
+                  {requesting ? "Queuing…" : "Request analysis"}
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type ModuleSearchResult = { moduleCode: string; title: string };
+
+function ModuleCodeField({
+  value,
+  onChange,
+  onSelect,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSelect: (mod: ModuleSearchResult) => void;
+}) {
+  const [results, setResults] = useState<ModuleSearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+
+  useEffect(() => {
+    if (value.trim().length < 2) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/modules/search?q=${encodeURIComponent(value.trim())}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setResults(data.results ?? []);
+          setOpen((data.results ?? []).length > 0);
+          setHighlighted(0);
+        }
+      } catch {
+        if (!cancelled) setResults([]);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [value]);
+
+  function selectResult(result: ModuleSearchResult) {
+    onChange(result.moduleCode);
+    onSelect(result);
+    setOpen(false);
+    setResults([]);
+  }
+
+  return (
+    <div className="relative">
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (!open || results.length === 0) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHighlighted((i) => Math.min(i + 1, results.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlighted((i) => Math.max(i - 1, 0));
+          } else if (e.key === "Enter" && results[highlighted]) {
+            e.preventDefault();
+            selectResult(results[highlighted]);
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        onFocus={() => {
+          if (results.length > 0) setOpen(true);
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder="Module code or title"
+        className="w-full rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none transition-colors focus-visible:border-accent"
+      />
+      {open ? (
+        <div className="absolute z-10 mt-1 w-full animate-fade-slide-in overflow-hidden rounded-lg border border-border bg-surface shadow-md">
+          {results.map((r, i) => (
+            <button
+              key={r.moduleCode}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectResult(r)}
+              className={`block w-full px-2 py-1.5 text-left text-[12px] transition-colors duration-100 ${
+                i === highlighted ? "bg-seg-bg" : "hover:bg-seg-bg"
+              }`}
+            >
+              <span className="font-semibold text-text1">{r.moduleCode}</span>
+              <span className="ml-1.5 text-text3">{r.title}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -438,8 +695,24 @@ function AddEntryForm({
   onCancel: () => void;
 }) {
   const [moduleCode, setModuleCode] = useState("");
+  const [title, setTitle] = useState("");
   const [mc, setMc] = useState(4);
   const [status, setStatus] = useState<Entry["status"]>("PLANNED");
+  const [resolving, setResolving] = useState(false);
+
+  async function handleSelect(mod: ModuleSearchResult) {
+    setTitle(mod.title);
+    setResolving(true);
+    try {
+      const res = await fetch(`/api/modules/${mod.moduleCode}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMc(data.mc);
+      }
+    } finally {
+      setResolving(false);
+    }
+  }
 
   return (
     <form
@@ -450,20 +723,27 @@ function AddEntryForm({
           academicYear,
           semester,
           moduleCode: moduleCode.trim().toUpperCase(),
-          label: moduleCode.trim().toUpperCase(),
+          label: (title || moduleCode).trim(),
           mc,
           status,
         });
       }}
-      className="mt-2 flex flex-col gap-1.5 rounded-lg border border-border bg-page p-2"
+      className="mt-2 flex animate-fade-slide-in flex-col gap-1.5 rounded-lg border border-border bg-page p-2"
     >
-      <input
-        autoFocus
+      <ModuleCodeField
         value={moduleCode}
-        onChange={(e) => setModuleCode(e.target.value)}
-        placeholder="Module code"
-        className="rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none focus-visible:border-accent"
+        onChange={(v) => {
+          setModuleCode(v);
+          setTitle("");
+        }}
+        onSelect={handleSelect}
       />
+      {title ? (
+        <div className="px-0.5 text-[11px] leading-snug text-text3">
+          {title}
+          {resolving ? " · loading…" : ""}
+        </div>
+      ) : null}
       <div className="flex gap-1.5">
         <input
           type="number"
@@ -471,7 +751,7 @@ function AddEntryForm({
           max={40}
           value={mc}
           onChange={(e) => setMc(Number(e.target.value))}
-          className="w-16 rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none focus-visible:border-accent"
+          className="w-16 rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none transition-colors focus-visible:border-accent"
         />
         <select
           value={status}
@@ -486,107 +766,14 @@ function AddEntryForm({
       <div className="flex gap-1.5">
         <button
           type="submit"
-          className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white"
+          className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white transition-transform duration-100 active:scale-[0.98]"
         >
           Add
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-border px-2 py-1 text-[12px] text-text2"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function NewSemesterForm({
-  onSubmit,
-  onCancel,
-}: {
-  onSubmit: (form: {
-    academicYear: number;
-    semester: number;
-    moduleCode: string;
-    label: string;
-    mc: number;
-    status: Entry["status"];
-  }) => void;
-  onCancel: () => void;
-}) {
-  const [academicYear, setAcademicYear] = useState(1);
-  const [semester, setSemester] = useState(1);
-  const [moduleCode, setModuleCode] = useState("");
-  const [mc, setMc] = useState(4);
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!moduleCode.trim()) return;
-        onSubmit({
-          academicYear,
-          semester,
-          moduleCode: moduleCode.trim().toUpperCase(),
-          label: moduleCode.trim().toUpperCase(),
-          mc,
-          status: "PLANNED",
-        });
-      }}
-      className="flex flex-col gap-1.5 rounded-xl border border-border bg-surface p-3"
-    >
-      <div className="text-[12.5px] font-semibold text-text1">New semester</div>
-      <div className="flex gap-1.5">
-        <label className="flex-1 text-[11px] text-text3">
-          Year
-          <input
-            type="number"
-            min={1}
-            max={6}
-            value={academicYear}
-            onChange={(e) => setAcademicYear(Number(e.target.value))}
-            className="mt-0.5 w-full rounded border border-border bg-page px-2 py-1 text-[12.5px] outline-none"
-          />
-        </label>
-        <label className="flex-1 text-[11px] text-text3">
-          Sem
-          <input
-            type="number"
-            min={1}
-            max={2}
-            value={semester}
-            onChange={(e) => setSemester(Number(e.target.value))}
-            className="mt-0.5 w-full rounded border border-border bg-page px-2 py-1 text-[12.5px] outline-none"
-          />
-        </label>
-      </div>
-      <input
-        value={moduleCode}
-        onChange={(e) => setModuleCode(e.target.value)}
-        placeholder="First module code"
-        className="rounded border border-border bg-page px-2 py-1 text-[12.5px] outline-none"
-      />
-      <input
-        type="number"
-        min={0}
-        max={40}
-        value={mc}
-        onChange={(e) => setMc(Number(e.target.value))}
-        className="w-16 rounded border border-border bg-page px-2 py-1 text-[12.5px] outline-none"
-      />
-      <div className="flex gap-1.5">
-        <button
-          type="submit"
-          className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white"
-        >
-          Create
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-border px-2 py-1 text-[12px] text-text2"
+          className="rounded border border-border px-2 py-1 text-[12px] text-text2 transition-colors duration-150 hover:bg-seg-bg"
         >
           Cancel
         </button>

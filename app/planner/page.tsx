@@ -89,6 +89,7 @@ export default async function PlannerPage() {
       semesterEntries={semesterEntries}
       exemptionEntries={exemptionEntries}
       buckets={buckets}
+      bucketDefs={bcompCs.buckets}
       degreeLabel={bcompCs.label}
       degreeTotalMc={bcompCs.totalMc}
       violationsByEntryId={Object.fromEntries(violationsByEntryId)}

@@ -34,6 +34,20 @@ const config: Config = {
           bg: "var(--seg-bg)",
         },
       },
+      keyframes: {
+        "fade-slide-in": {
+          "0%": { opacity: "0", transform: "translateY(-4px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+      },
+      animation: {
+        "fade-slide-in": "fade-slide-in 150ms ease-out",
+        "fade-in": "fade-in 150ms ease-out",
+      },
       fontFamily: {
         sans: [
           "ui-sans-serif",
