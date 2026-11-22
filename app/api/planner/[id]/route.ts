@@ -24,16 +24,18 @@ async function assertOwnership(id: string, userId: string) {
   return entry;
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+// Next.js 15 passes dynamic route params as a Promise, not a plain object —
+// this has to be awaited before use, not destructured directly.
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function PATCH(request: Request, { params }: RouteContext) {
+  const { id } = await params;
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const existing = await assertOwnership(params.id, userId);
+  const existing = await assertOwnership(id, userId);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
@@ -48,28 +50,26 @@ export async function PATCH(
   }
 
   const entry = await prisma.plannerEntry.update({
-    where: { id: params.id },
+    where: { id },
     data: parsed.data,
   });
 
   return NextResponse.json({ entry });
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: Request, { params }: RouteContext) {
+  const { id } = await params;
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const existing = await assertOwnership(params.id, userId);
+  const existing = await assertOwnership(id, userId);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  await prisma.plannerEntry.delete({ where: { id: params.id } });
+  await prisma.plannerEntry.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });
 }
