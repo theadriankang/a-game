@@ -31,10 +31,33 @@ export type PrereqTree =
   | { and: PrereqTree[] }
   | { or: PrereqTree[] };
 
+// A single scheduled class for one lesson type/class number — e.g. one
+// specific Tuesday 10am lecture slot. "weeks" is usually a flat list of
+// teaching-week numbers (1-13); a few modules instead describe it as a
+// {start,end,weekInterval} range (e.g. odd/even-week alternating classes),
+// so both shapes are modeled here rather than assuming the simple one.
+export type WeekRange = {
+  start: string;
+  end: string;
+  weekInterval?: number;
+  weeks?: number[];
+};
+
+export type Lesson = {
+  classNo: string;
+  lessonType: string; // "Lecture", "Tutorial", "Laboratory", etc.
+  day: string; // "Monday".."Sunday"
+  startTime: string; // "0900"
+  endTime: string; // "1200"
+  weeks: number[] | WeekRange;
+  venue: string;
+};
+
 export type SemesterData = {
   semester: number;
   examDate?: string;
   examDuration?: number;
+  timetable?: Lesson[];
 };
 
 export type ModuleInfo = {

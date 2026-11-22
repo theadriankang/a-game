@@ -176,6 +176,18 @@ export function PlannerBoard({
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/timetable"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Timetable
+          </Link>
+          <Link
+            href="/usage"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Usage
+          </Link>
+          <Link
             href="/settings"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >
@@ -383,9 +395,36 @@ export function PlannerBoard({
                   : "border-border bg-surface"
               }`}
             >
-              <div className="mb-2 text-[12.5px] font-semibold text-text1">
-                Year {col.academicYear} · Sem {col.semester}
-              </div>
+              {(() => {
+                const totalMc = col.entries.reduce((sum, e) => sum + e.mc, 0);
+                const isLight = col.entries.length > 0 && totalMc < 18;
+                const isHeavy = totalMc > 23;
+                return (
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="text-[12.5px] font-semibold text-text1">
+                      Year {col.academicYear} · Sem {col.semester}
+                    </div>
+                    <div
+                      className={`text-[11px] font-semibold ${
+                        isLight
+                          ? "text-amber-600"
+                          : isHeavy
+                            ? "text-red-500"
+                            : "text-text3"
+                      }`}
+                      title={
+                        isLight
+                          ? "Under the usual 18 MC full-time minimum"
+                          : isHeavy
+                            ? "Over 23 MC — usually needs faculty approval"
+                            : undefined
+                      }
+                    >
+                      {totalMc} MC
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="flex flex-col gap-2">
                 {col.entries.map((entry) => (
                   <EntryCard
