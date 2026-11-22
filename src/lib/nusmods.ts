@@ -5,6 +5,12 @@
 
 const NUSMODS_BASE = "https://api.nusmods.com/v2";
 
+// Shared default academic year for prereq/preclusion checking, matching the
+// degree structure in lib/degree-requirements/bcomp-cs.ts. Not yet derived
+// per-user (no matriculation year is stored on User today) — a reasonable
+// single default until that's tracked.
+export const NUSMODS_ACAD_YEAR = "2026-2027";
+
 // A day's worth of cache is fine: module data for a given academic year
 // essentially never changes mid-day, and this keeps us well clear of
 // hammering a public API on every page load.

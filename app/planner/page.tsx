@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import { bcompCs } from "@/lib/degree-requirements/bcomp-cs";
+import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
+import { checkPlan } from "@/lib/prereq-check";
 import { PlannerBoard } from "./planner-board";
 
 // The onboarding placeholder slot for exemptions (see app/api/onboarding) —
@@ -41,6 +43,29 @@ export default async function PlannerPage() {
 
   const buckets = bucketPlannerEntries(entries, bcompCs);
 
+  // Best-effort: fetch NUSMods data for every distinct module code in the
+  // plan, so prereq/preclusion checking has something to check against. A
+  // module that fails to fetch (typo'd code, NUSMods hiccup) is simply
+  // skipped — it shows no violation rather than breaking the whole page.
+  const distinctCodes = Array.from(
+    new Set(entries.map((e) => e.moduleCode).filter((c): c is string => !!c))
+  );
+  const moduleInfoEntries = await Promise.all(
+    distinctCodes.map(async (code) => {
+      try {
+        const info = await getModuleInfo(NUSMODS_ACAD_YEAR, code);
+        return [code, info] as const;
+      } catch {
+        return [code, undefined] as const;
+      }
+    })
+  );
+  const moduleInfoByCode: Record<string, ModuleInfo | undefined> = Object.fromEntries(
+    moduleInfoEntries
+  );
+
+  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode);
+
   return (
     <PlannerBoard
       userName={user.name}
@@ -51,6 +76,7 @@ export default async function PlannerPage() {
       buckets={buckets}
       degreeLabel={bcompCs.label}
       degreeTotalMc={bcompCs.totalMc}
+      violationsByEntryId={Object.fromEntries(violationsByEntryId)}
     />
   );
 }

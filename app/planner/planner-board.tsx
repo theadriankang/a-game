@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import type { BucketProgress } from "@/lib/degree-requirements/bucket";
+import type { PrereqViolation } from "@/lib/prereq-check";
 
 type Entry = {
   id: string;
@@ -25,6 +26,7 @@ type Props = {
   buckets: BucketProgress[];
   degreeLabel: string;
   degreeTotalMc: number;
+  violationsByEntryId: Record<string, PrereqViolation[]>;
 };
 
 const STATUS_LABEL: Record<Entry["status"], string> = {
@@ -66,6 +68,7 @@ export function PlannerBoard({
   buckets,
   degreeLabel,
   degreeTotalMc,
+  violationsByEntryId,
 }: Props) {
   const router = useRouter();
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -241,11 +244,21 @@ export function PlannerBoard({
                         ✕
                       </button>
                     </div>
-                    <span
-                      className={`mt-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold ${STATUS_CLASS[entry.status]}`}
-                    >
-                      {STATUS_LABEL[entry.status]}
-                    </span>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span
+                        className={`inline-block rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold ${STATUS_CLASS[entry.status]}`}
+                      >
+                        {STATUS_LABEL[entry.status]}
+                      </span>
+                      {violationsByEntryId[entry.id]?.length ? (
+                        <span
+                          title={violationsByEntryId[entry.id].map((v) => v.message).join(" ")}
+                          className="inline-flex cursor-help items-center rounded-full border border-red-border bg-red-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-red"
+                        >
+                          ⚠ Check
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>
