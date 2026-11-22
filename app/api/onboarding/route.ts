@@ -1,0 +1,77 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { z } from "zod";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+const onboardingSchema = z.object({
+  programme: z.string().trim().min(1).max(100),
+  priorDiploma: z.string().trim().max(150).optional().or(z.literal("")),
+  suBudgetTotalMc: z.coerce.number().int().min(0).max(60),
+  // Module codes the user already has an approved credit transfer / exemption
+  // for, e.g. ["CS2101", "IS1108"]. Free-typed, so normalize loosely.
+  exemptions: z.array(z.string().trim().toUpperCase().min(1)).max(30),
+});
+
+// A fixed placeholder slot (year 0, sem 0) for exemption/APC rows: they
+// happened before matriculation, not in any real semester, but still need
+// to count toward degree-requirement buckets once that logic reads them.
+const EXEMPTION_YEAR = 0;
+const EXEMPTION_SEMESTER = 0;
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = onboardingSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 }
+    );
+  }
+
+  const { programme, priorDiploma, suBudgetTotalMc, exemptions } =
+    parsed.data;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        programme,
+        priorDiploma: priorDiploma || null,
+        suBudgetTotalMc,
+      },
+    });
+
+    // Re-running onboarding shouldn't duplicate exemption rows: clear the
+    // placeholder slot and re-create from the submitted list.
+    await tx.plannerEntry.deleteMany({
+      where: {
+        userId,
+        academicYear: EXEMPTION_YEAR,
+        semester: EXEMPTION_SEMESTER,
+      },
+    });
+
+    if (exemptions.length > 0) {
+      await tx.plannerEntry.createMany({
+        data: exemptions.map((moduleCode) => ({
+          userId,
+          moduleCode,
+          label: moduleCode,
+          mc: 0, // exemptions don't consume MC the user needs to plan for
+          academicYear: EXEMPTION_YEAR,
+          semester: EXEMPTION_SEMESTER,
+          status: "COMPLETED" as const,
+        })),
+      });
+    }
+  });
+
+  return NextResponse.json({ ok: true });
+}
