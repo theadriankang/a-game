@@ -144,3 +144,33 @@ export function flattenPrereqTree(tree: PrereqTree | undefined): string[] {
   if ("or" in tree) return [...new Set(tree.or.flatMap(flattenPrereqTree))];
   return [];
 }
+
+// Renders a prereq tree as a human-readable string, e.g.
+// "(CS1010 or CS1010X) and MA1301 (min grade D)" - for a full module info
+// page where showing the actual and/or structure (not just a flattened
+// code list) helps someone tell "any one of" apart from "all of these".
+export function formatPrereqTree(tree: PrereqTree | undefined): string | null {
+  if (!tree) return null;
+
+  function render(node: PrereqTree): string {
+    if (typeof node === "string") {
+      const [code, grade] = node.split(":");
+      return grade ? `${code} (min grade ${grade})` : code;
+    }
+    if ("and" in node) {
+      const parts = node.and.map(render);
+      return parts.length > 1 ? `(${parts.join(" and ")})` : parts[0];
+    }
+    if ("or" in node) {
+      const parts = node.or.map(render);
+      return parts.length > 1 ? `(${parts.join(" or ")})` : parts[0];
+    }
+    return "";
+  }
+
+  const rendered = render(tree);
+  // Strip one redundant outermost pair of parens for the top-level case.
+  return rendered.startsWith("(") && rendered.endsWith(")")
+    ? rendered.slice(1, -1)
+    : rendered;
+}

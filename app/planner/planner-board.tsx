@@ -727,7 +727,16 @@ function EntryCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold">{entry.moduleCode ?? entry.label}</div>
+          {entry.moduleCode ? (
+            <Link
+              href={`/modules/${entry.moduleCode}`}
+              className="truncate text-[13px] font-semibold hover:text-accent hover:underline"
+            >
+              {entry.moduleCode}
+            </Link>
+          ) : (
+            <div className="truncate text-[13px] font-semibold">{entry.label}</div>
+          )}
           {showTitle ? <div className="truncate text-[11px] text-text3">{entry.label}</div> : null}
           <div className="text-[11px] text-text3">{entry.mc} MC</div>
         </div>
@@ -761,41 +770,66 @@ function EntryCard({
       </div>
 
       {entry.moduleCode ? (
-        <div className="mt-1.5">
-          <button
-            onClick={toggleGlance}
-            className="text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
-          >
-            {glanceOpen ? "Hide at a glance" : "At a glance"}
-          </button>
+        <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button
+              onClick={toggleGlance}
+              className="text-[11px] font-medium text-text2 hover:text-accent hover:underline"
+            >
+              {glanceOpen ? "Hide at a glance" : "At a glance"}
+            </button>
+            <button
+              onClick={onToggleExpand}
+              className="text-[11px] font-medium text-text2 hover:text-accent hover:underline"
+            >
+              {expanded ? "Hide community signal" : "Community signal"}
+            </button>
+            <Link
+              href={`/modules/${entry.moduleCode}`}
+              className="text-[11px] font-medium text-text3 hover:text-accent hover:underline"
+            >
+              Full module info →
+            </Link>
+          </div>
+
           {glanceOpen ? (
-            <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
+            <div className="rounded-lg border border-border bg-seg-bg p-3 text-[12px] leading-relaxed text-text1">
               {glanceLoading ? (
-                <p>Loading…</p>
+                <p className="text-text3">Loading…</p>
               ) : glanceData ? (
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   {glanceData.department ? (
-                    <p>
+                    <div className="font-medium text-text2">
                       {glanceData.department}
                       {glanceData.faculty ? ` · ${glanceData.faculty}` : ""}
-                    </p>
+                    </div>
                   ) : null}
                   {glanceData.workload ? (
-                    <p>
-                      {glanceData.workload
-                        .map((hrs, i) => `${WORKLOAD_LABELS[i] ?? "Other"} ${hrs}h`)
-                        .join(" · ")}
-                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-text2">
+                      {glanceData.workload.map((hrs, i) =>
+                        hrs > 0 || WORKLOAD_LABELS[i] ? (
+                          <span key={i}>
+                            {WORKLOAD_LABELS[i] ?? "Other"} {hrs}h
+                          </span>
+                        ) : null
+                      )}
+                    </div>
                   ) : null}
                   {glanceData.semestersOffered.length > 0 ? (
-                    <p>Offered: Sem {glanceData.semestersOffered.join(", ")}</p>
+                    <div>Offered: Semester {glanceData.semestersOffered.join(", ")}</div>
                   ) : (
-                    <p className="italic text-text3">Not offered this academic year.</p>
+                    <div className="italic text-text3">Not offered this academic year.</div>
                   )}
                   {glanceData.prereqCodes.length > 0 ? (
-                    <p>Prereqs: {glanceData.prereqCodes.join(", ")}</p>
+                    <div>
+                      <span className="text-text2">Prereqs:</span> {glanceData.prereqCodes.join(", ")}
+                    </div>
                   ) : null}
-                  {glanceData.preclusion ? <p>Preclusion: {glanceData.preclusion}</p> : null}
+                  {glanceData.preclusion ? (
+                    <div>
+                      <span className="text-text2">Preclusion:</span> {glanceData.preclusion}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <p className="italic text-text3">Couldn&rsquo;t load NUSMods data for this module.</p>
@@ -803,42 +837,39 @@ function EntryCard({
             </div>
           ) : null}
 
-          <button
-            onClick={onToggleExpand}
-            className="mt-1 text-[10.5px] font-medium text-text3 hover:text-text2 hover:underline"
-          >
-            {expanded ? "Hide community signal" : "Community signal"}
-          </button>
           {expanded ? (
-            <div className="mt-1 rounded-md border border-border bg-seg-bg p-1.5 text-[11px] text-text2">
+            <div className="rounded-lg border border-border bg-seg-bg p-3 text-[12px] leading-relaxed text-text1">
               {analysis ? (
-                <>
+                <div className="flex flex-col gap-2">
                   <p>{analysis.summary}</p>
                   {analysis.status === "THIN_DATA" ? (
-                    <p className="mt-1 italic text-text3">
+                    <p className="italic text-text3">
                       Not much public discussion found for this one.
                     </p>
                   ) : null}
                   {analysis.tags.length > 0 ? (
-                    <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {analysis.tags.map((tag) => (
-                        <span key={tag} className="rounded-full bg-page px-1.5 py-0.5 text-[10px]">
+                        <span
+                          key={tag}
+                          className="rounded-full bg-page px-2 py-0.5 text-[11px] font-medium text-text2"
+                        >
                           {tag}
                         </span>
                       ))}
                     </div>
                   ) : null}
-                  <p className="mt-1 text-[10px] text-text3">
+                  <p className="text-[10.5px] text-text3">
                     AI-synthesized from public discussion, not an official rating.
                   </p>
-                </>
+                </div>
               ) : pending ? (
-                <p>Analysis queued - check back soon.</p>
+                <p className="text-text2">Analysis queued - check back soon.</p>
               ) : (
                 <button
                   onClick={onRequestAnalysis}
                   disabled={requesting}
-                  className="font-medium text-accent disabled:opacity-50"
+                  className="font-semibold text-accent hover:underline disabled:opacity-50"
                 >
                   {requesting ? "Queuing…" : "Request analysis"}
                 </button>
