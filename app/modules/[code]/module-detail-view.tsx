@@ -69,10 +69,16 @@ export function ModuleDetailView(props: Props) {
     prereqSummary,
     preclusion,
     corequisite,
-    analysis,
+    analysis: initialAnalysis,
     pending: initialPending,
   } = props;
 
+  // The POST below now runs the research synchronously (see the route's
+  // own comment for why) rather than just flipping a "queued" flag, so the
+  // finished report comes back in the same response - track it as local
+  // state, seeded from the server-rendered prop, so a successful call can
+  // replace it directly instead of needing a full page refresh.
+  const [analysis, setAnalysis] = useState(initialAnalysis);
   const [pending, setPending] = useState(initialPending);
   const [requesting, setRequesting] = useState(false);
 
@@ -82,7 +88,12 @@ export function ModuleDetailView(props: Props) {
       const res = await fetch(`/api/modules/${moduleCode}/analysis`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        if (data.queued) setPending(true);
+        if (data.analysis) {
+          setAnalysis(data.analysis);
+          setPending(false);
+        } else if (data.queued) {
+          setPending(true);
+        }
       }
     } finally {
       setRequesting(false);

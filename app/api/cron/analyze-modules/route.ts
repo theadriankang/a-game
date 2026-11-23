@@ -9,7 +9,17 @@ import { AnalysisStatus } from "@prisma/client";
 // allow finer schedules) - see vercel.json. One run processes a small batch
 // so a single invocation can't balloon in cost or run past the serverless
 // function timeout; anything left over gets picked up next run.
-const BATCH_SIZE = 5;
+//
+// This previously had no maxDuration set, which meant the function ran
+// under whatever Vercel's default timeout is (well under what researching
+// even one module can take - each one can involve several sequential web
+// searches). Every invocation was silently dying mid-loop before writing a
+// single result, which is why requests were piling up as PENDING forever.
+// 60s is the max Vercel allows on Hobby; BATCH_SIZE is kept modest so a
+// batch has a real chance of finishing inside that window rather than
+// racing it.
+export const maxDuration = 60;
+const BATCH_SIZE = 3;
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
