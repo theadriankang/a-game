@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
+import { NUSMODS_ACAD_YEAR, getModuleInfo } from "@/lib/nusmods";
 import { researchModule } from "@/lib/anthropic";
 import { AnalysisStatus, AnalysisTrigger } from "@prisma/client";
 
@@ -48,8 +48,11 @@ export async function enqueueAnalysis(
 }
 
 /**
- * Does the actual research + cache write for one module. Called from the
- * cron worker, never from a request path - this is the slow, costly part.
+ * Does the actual research + cache write for one module. This is the
+ * slow, costly part - called from the on-demand route (synchronously,
+ * while the requester waits), from processAnalysisRequest below (for
+ * AUTO_* requests, via Next's after()), and from the cron route as a
+ * backstop for anything that didn't get processed either of those ways.
  */
 export async function runAndCacheAnalysis(
   moduleCode: string,
@@ -86,4 +89,54 @@ export async function runAndCacheAnalysis(
   });
 
   return { analysis, result };
+}
+
+/**
+ * Takes one already-created AnalysisRequest through to a final status:
+ * skip the research entirely if another request for the same module got
+ * cached in the meantime, otherwise look up the module's title and run
+ * the actual research, then write the request row's final status/cost.
+ * Never throws - a failure here marks the request FAILED instead, since
+ * callers (the planner route's after(), the cron loop) don't want an
+ * analysis failure to surface as their own request's error.
+ */
+export async function processAnalysisRequest(requestId: string, moduleCode: string) {
+  try {
+    const alreadyCached = await getCachedAnalysis(moduleCode);
+
+    let finalStatus: AnalysisStatus;
+    let tokensUsed: number | null = null;
+    let costUsd: number | null = null;
+
+    if (alreadyCached) {
+      finalStatus = alreadyCached.status;
+    } else {
+      let title: string | null = null;
+      try {
+        const info = await getModuleInfo(NUSMODS_ACAD_YEAR, moduleCode);
+        title = info.title;
+      } catch {
+        // Module might not exist in the current AY's offering list -
+        // research can still proceed on the code alone.
+      }
+      const { analysis, result } = await runAndCacheAnalysis(moduleCode, title);
+      finalStatus = analysis.status;
+      tokensUsed = result.tokensUsed;
+      costUsd = result.costUsd;
+    }
+
+    await prisma.analysisRequest.update({
+      where: { id: requestId },
+      data: { status: finalStatus, tokensUsed, costUsd },
+    });
+
+    return finalStatus;
+  } catch (error) {
+    console.error(`Module analysis failed for ${moduleCode}:`, error);
+    await prisma.analysisRequest.update({
+      where: { id: requestId },
+      data: { status: AnalysisStatus.FAILED },
+    });
+    return AnalysisStatus.FAILED;
+  }
 }
