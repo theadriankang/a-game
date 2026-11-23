@@ -137,6 +137,13 @@ model ModuleAnalysis {
   // reports generated before this field existed; the UI falls back to
   // equal-sized bubbles when it's missing or short.
   tagWeights  Int[]
+  // A separate, larger set of short (1-3 word) keywords/sentiment terms
+  // for the word-cloud visual - distinct from `tags` (which stays a
+  // small curated set for the pill row). Same index-matched-weight
+  // scheme as tags/tagWeights. Empty for reports made before this field
+  // existed.
+  keywords       String[]
+  keywordWeights Int[]
   sources     String[]       // URLs or source descriptions, for transparency
   status      AnalysisStatus @default(PENDING)
   tokensUsed  Int?

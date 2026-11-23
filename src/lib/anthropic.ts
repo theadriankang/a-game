@@ -34,6 +34,10 @@ export type ModuleResearchResult = {
   tags: string[];
   // Parallel to tags - see the schema comment on ModuleAnalysis.tagWeights.
   tagWeights: number[];
+  // A larger, more granular set of short keywords/sentiment terms for the
+  // word-cloud visual - see the schema comment on ModuleAnalysis.keywords.
+  keywords: string[];
+  keywordWeights: number[];
   sources: string[];
   thinData: boolean;
   tokensUsed: number;
@@ -75,10 +79,11 @@ export async function researchModule(
 Then respond in exactly this format and nothing else:
 
 SUMMARY: <2-4 sentence neutral summary of what students commonly say>
-TAGS: <3-6 tags, each as "tag:weight" separated by commas - weight is 1-5, how often that sentiment showed up across the sources you found (5 = came up in most sources you read, 1 = only one source mentioned it). Example: Heavy workload:5, Team project:4, Bell curve:2, Great prof:1>
+TAGS: <3-6 short phrase tags, each as "tag:weight" separated by commas - weight is 1-5, how often that sentiment showed up across the sources you found (5 = came up in most sources you read, 1 = only one source mentioned it). Example: Heavy workload:5, Team project:4, Bell curve:2, Great prof:1>
+KEYWORDS: <8-15 short, 1-3 word keywords/sentiment terms for a word-cloud visual, each as "keyword:weight" (same 1-5 weighting scheme as TAGS). Break down specific recurring words and phrases students actually used, not just restatements of the TAGS above - include specific nouns, adjectives and sentiment words that kept coming up (e.g. professor names if repeatedly praised/criticized, specific assessment types, adjectives like "dry", "fun", "manageable"). It's fine for a few to overlap with TAGS. Example: workload:5, bell-curve:3, group-project:4, dry:3, manageable:4, Prof Tan:2, essays:3, interesting:2>
 THIN_DATA: <true if you found little to no public discussion to go on, false otherwise>
 
-Do not invent or guess at student sentiment if you can't find real discussion for it - say so plainly in the summary and set THIN_DATA to true instead. Base each weight on what you actually saw repeated across sources, not a guess.`,
+Do not invent or guess at student sentiment if you can't find real discussion for it - say so plainly in the summary and set THIN_DATA to true instead. Base every weight on what you actually saw repeated across sources, not a guess - if you only found one or two sources total, most weights should be low.`,
       },
     ],
   });
@@ -99,7 +104,8 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
   }
 
   const summaryMatch = fullText.match(/SUMMARY:\s*([\s\S]*?)(?=\n *TAGS:|$)/i);
-  const tagsMatch = fullText.match(/TAGS:\s*(.*)/i);
+  const tagsMatch = fullText.match(/TAGS:\s*([\s\S]*?)(?=\n *KEYWORDS:|$)/i);
+  const keywordsMatch = fullText.match(/KEYWORDS:\s*([\s\S]*?)(?=\n *THIN_DATA:|$)/i);
   const thinDataMatch = fullText.match(/THIN_DATA:\s*(true|false)/i);
 
   const summary =
@@ -107,16 +113,17 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
     fullText.trim() ||
     "No summary could be generated for this module.";
 
-  // Each raw tag is "label:weight" (weight 1-5). A tag with no parseable
-  // weight (model drifted from the format, or an older-style response)
-  // still gets kept with weight 3 - a safe middle value - rather than
-  // dropped, since the label itself is still useful even if the model
-  // didn't rate it.
-  const tags: string[] = [];
-  const tagWeights: number[] = [];
-  if (tagsMatch?.[1]) {
-    for (const raw of tagsMatch[1].split(",")) {
-      const trimmed = raw.trim();
+  // Shared by TAGS and KEYWORDS - each raw entry is "label:weight"
+  // (weight 1-5). An entry with no parseable weight (model drifted from
+  // the format, or an older-style response) still gets kept with weight
+  // 3 - a safe middle value - rather than dropped, since the label
+  // itself is still useful even if the model didn't rate it.
+  function parseWeightedList(raw: string | undefined): { labels: string[]; weights: number[] } {
+    const labels: string[] = [];
+    const weights: number[] = [];
+    if (!raw) return { labels, weights };
+    for (const entry of raw.split(",")) {
+      const trimmed = entry.trim();
       if (!trimmed) continue;
       const parts = trimmed.split(":");
       const label = parts[0]?.trim();
@@ -125,10 +132,14 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
       const weight = Number.isFinite(parsedWeight)
         ? Math.min(5, Math.max(1, parsedWeight))
         : 3;
-      tags.push(label);
-      tagWeights.push(weight);
+      labels.push(label);
+      weights.push(weight);
     }
+    return { labels, weights };
   }
+
+  const { labels: tags, weights: tagWeights } = parseWeightedList(tagsMatch?.[1]);
+  const { labels: keywords, weights: keywordWeights } = parseWeightedList(keywordsMatch?.[1]);
 
   const thinData = thinDataMatch?.[1]?.toLowerCase() === "true";
 
@@ -144,6 +155,8 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
     summary,
     tags,
     tagWeights,
+    keywords,
+    keywordWeights,
     sources: Array.from(sources),
     thinData,
     tokensUsed: inputTokens + outputTokens,

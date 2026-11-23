@@ -79,7 +79,7 @@ export function UsagePanel({
             <Odometer value={totals.tokens} />
           </StatPill>
           <StatPill label="Estimated cost">
-            <Odometer value={totals.costUsd} format={formatUsd} />
+            <Odometer value={totals.costUsd} variant="usd" />
           </StatPill>
           <StatPill label="Auto vs on-demand">
             <Odometer value={totals.autoCount} /> <span className="text-text3">/</span>{" "}

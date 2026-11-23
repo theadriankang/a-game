@@ -11,11 +11,24 @@
 // new column just appears - a rare edge case here, not worth the extra
 // complexity of an enter/exit transition for it.
 
+// "format" used to be a function prop, but a Server Component can't pass
+// a plain function into a Client Component (not serializable across that
+// boundary - this is what broke /usage). A string variant keeps the
+// formatting logic in here instead, so only serializable props cross.
+type Variant = "number" | "usd";
+
 type Props = {
   value: number;
-  format?: (n: number) => string;
+  variant?: Variant;
   className?: string;
 };
+
+function formatValue(value: number, variant: Variant): string {
+  if (variant === "usd") {
+    return value < 0.01 && value > 0 ? "<$0.01" : `$${value.toFixed(2)}`;
+  }
+  return value.toLocaleString();
+}
 
 function DigitColumn({ digit }: { digit: number }) {
   return (
@@ -36,8 +49,8 @@ function DigitColumn({ digit }: { digit: number }) {
   );
 }
 
-export function Odometer({ value, format, className }: Props) {
-  const formatted = (format ?? ((n: number) => n.toLocaleString()))(value);
+export function Odometer({ value, variant = "number", className }: Props) {
+  const formatted = formatValue(value, variant);
   // Reverse so index 0 is the rightmost (least significant) character -
   // that's what keeps a given digit column tracking the same place value
   // across renders even if the string's length changes.

@@ -112,6 +112,8 @@ export default async function ModulePage({ params }: RouteParams) {
               summary: analysis.summary,
               tags: analysis.tags,
               tagWeights: analysis.tagWeights,
+              keywords: analysis.keywords,
+              keywordWeights: analysis.keywordWeights,
               sources: analysis.sources,
               status: analysis.status,
             }

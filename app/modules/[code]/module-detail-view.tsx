@@ -8,6 +8,8 @@ type AnalysisData = {
   summary: string;
   tags: string[];
   tagWeights?: number[];
+  keywords?: string[];
+  keywordWeights?: number[];
   sources: string[];
   status: "PENDING" | "COMPLETED" | "FAILED" | "THIN_DATA";
 };
@@ -270,9 +272,23 @@ export function ModuleDetailView(props: Props) {
                     ))}
                   </div>
                 ) : null}
-                {analysis.tags.length > 0 ? (
-                  <div className="rounded-lg border border-border bg-page/60 px-2">
-                    <TagCloud tags={analysis.tags} weights={analysis.tagWeights} />
+                {/* Prefer the larger, more granular keyword set for the
+                    cloud; fall back to the curated tags for reports made
+                    before KEYWORDS existed. */}
+                {(analysis.keywords?.length ?? 0) > 0 || analysis.tags.length > 0 ? (
+                  <div className="rounded-lg border border-border bg-page/60">
+                    <TagCloud
+                      words={
+                        analysis.keywords && analysis.keywords.length > 0
+                          ? analysis.keywords
+                          : analysis.tags
+                      }
+                      weights={
+                        analysis.keywords && analysis.keywords.length > 0
+                          ? analysis.keywordWeights
+                          : analysis.tagWeights
+                      }
+                    />
                   </div>
                 ) : null}
                 {analysis.sources.length > 0 ? (
