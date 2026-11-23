@@ -28,7 +28,13 @@ export function evaluatePrereqTree(
   satisfied: Set<string>
 ): boolean {
   if (!tree) return true;
-  if (typeof tree === "string") return satisfied.has(tree.toUpperCase());
+  // NUSMods encodes a minimum-grade requirement as "CODE:GRADE" (e.g.
+  // "MA1301:D") - strip that suffix before comparing, or every leaf with a
+  // grade requirement would never match a plain moduleCode anywhere in
+  // the plan, flagging an already-completed prereq as unmet. (Same root
+  // cause as the fix in nusmods.ts's flattenPrereqTree - this is a
+  // separate function with its own copy of the same unstripped compare.)
+  if (typeof tree === "string") return satisfied.has(tree.split(":")[0].toUpperCase());
   if ("and" in tree) return tree.and.every((node) => evaluatePrereqTree(node, satisfied));
   if ("or" in tree) return tree.or.some((node) => evaluatePrereqTree(node, satisfied));
   return true;
