@@ -1,5 +1,8 @@
 "use client";
 
+import { useAnimate } from "motion/react";
+import { useEffect, useRef } from "react";
+
 // A rolling-digit counter: when `value` changes, each digit column
 // animates vertically to its new position instead of just swapping text,
 // the classic "odometer" effect. Non-digit characters (commas, "$", ".",
@@ -10,6 +13,15 @@
 // smoothly. If the number gains a new leading digit (999 -> 1000), that
 // new column just appears - a rare edge case here, not worth the extra
 // complexity of an enter/exit transition for it.
+//
+// On top of the per-digit roll, the whole number also gets a quick
+// spring "pop" whenever the value changes - borrowed from Motion's
+// "Characters remaining" example (motion.dev/examples/react-characters-remaining):
+// it fires an imperative spring via useAnimate rather than a declarative
+// transition, and feeds the spring a starting velocity proportional to
+// how big the jump was, so a cron batch landing 15 new tokens at once
+// snaps harder than a lone +1. That reads as "something just happened"
+// a plain CSS transition on its own doesn't convey.
 
 // "format" used to be a function prop, but a Server Component can't pass
 // a plain function into a Client Component (not serializable across that
@@ -42,8 +54,16 @@ function formatValue(value: number, variant: Variant): string {
 // Routing every character through this same boxed wrapper means they all
 // resolve to the same (consistent) baseline rule, so nothing drifts.
 function CharBox({ children }: { children: React.ReactNode }) {
+  // leading-[1em] matters as much as h-[1em] here: without it, a plain
+  // text node inherits the page's normal line-height (taller than 1em),
+  // and since the box clips to exactly h-[1em], whatever part of the
+  // glyph sits lower in that taller line box - which for "." and ","
+  // is most of the visible ink - gets cut off. Forcing the line-height
+  // down to match the box height keeps the whole glyph inside the
+  // visible window. DigitColumn's own rows already do this for the same
+  // reason; this wrapper needs it too now that plain characters share it.
   return (
-    <span className="relative inline-block h-[1em] overflow-hidden align-baseline">
+    <span className="relative inline-block h-[1em] overflow-hidden align-baseline leading-[1em]">
       {children}
     </span>
   );
@@ -75,8 +95,34 @@ export function Odometer({ value, variant = "number", className }: Props) {
   // across renders even if the string's length changes.
   const reversedChars = formatted.split("").reverse();
 
+  const [scope, animate] = useAnimate();
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    const delta = value - prevValue.current;
+    prevValue.current = value;
+    if (delta === 0 || !scope.current) return;
+
+    // The target is just the resting scale (1) - no keyframes. The
+    // bounce comes entirely from handing the spring a starting velocity,
+    // the way you'd flick a physical dial: a positive push away from
+    // rest that the spring's stiffness/damping then pulls back and
+    // settles, producing a natural overshoot-and-recover with no
+    // explicit "peak" value to tune. Clamped so a huge cron-batch delta
+    // doesn't fling it into an absurd overshoot.
+    const velocity = Math.max(-40, Math.min(40, Math.abs(delta) * 2 + 8));
+    animate(
+      scope.current,
+      { scale: 1 },
+      { type: "spring", velocity, stiffness: 700, damping: 22 }
+    );
+  }, [value, animate, scope]);
+
   return (
-    <span className={`inline-flex flex-row-reverse tabular-nums ${className ?? ""}`}>
+    <span
+      ref={scope}
+      className={`inline-flex flex-row-reverse tabular-nums ${className ?? ""}`}
+    >
       {reversedChars.map((ch, i) =>
         /[0-9]/.test(ch) ? (
           <DigitColumn key={i} digit={Number(ch)} />
