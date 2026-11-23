@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -117,6 +117,8 @@ export function PlannerBoard({
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [view, setView] = useState<"semester" | "requirement">("semester");
   const [requestingCode, setRequestingCode] = useState<string | null>(null);
+  const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
+  const gridRowRef = useRef<HTMLDivElement>(null);
 
   async function requestAnalysis(moduleCode: string) {
     setRequestingCode(moduleCode);
@@ -395,7 +397,13 @@ export function PlannerBoard({
               ))}
             </div>
           ) : (
-          <div className="flex gap-4">
+          <div className="relative">
+          <PrereqConnectorOverlay
+            containerRef={gridRowRef}
+            hoveredEntryId={hoveredEntryId}
+            entries={semesterEntries}
+          />
+          <div className="flex gap-4" ref={gridRowRef}>
           {semesters.map((col) => {
             const colKey = `${col.academicYear}-${col.semester}`;
             return (
@@ -479,6 +487,8 @@ export function PlannerBoard({
                     onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
                     onDelete={() => deleteEntry(entry.id)}
                     onStatusChange={(status) => changeStatus(entry.id, status)}
+                    onHoverStart={() => setHoveredEntryId(entry.id)}
+                    onHoverEnd={() => setHoveredEntryId((id) => (id === entry.id ? null : id))}
                   />
                 ))}
               </div>
@@ -516,12 +526,128 @@ export function PlannerBoard({
             + Add another year
           </button>
           </div>
+          </div>
           )}
         </main>
       </div>
     </div>
   );
 }
+
+// Draws faint curved "cable" connectors from a hovered module card back to
+// whichever of its NUSMods prerequisites already have a card in this plan -
+// hidden by default, revealed only while hovering, so it never competes
+// with the grid itself. Scoped to direct prerequisites of the hovered
+// module (not the reverse "what this unlocks" direction, which would need
+// fetching every other card's prereqs up front) - a worthwhile v1 limit
+// rather than a cost paid on every page load.
+function PrereqConnectorOverlay({
+  containerRef,
+  hoveredEntryId,
+  entries,
+}: {
+  containerRef: RefObject<HTMLDivElement | null>;
+  hoveredEntryId: string | null;
+  entries: Entry[];
+}) {
+  const [paths, setPaths] = useState<{ id: string; d: string }[]>([]);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const prereqCache = useRef<Map<string, string[]>>(new Map());
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !hoveredEntryId) {
+      setPaths([]);
+      return;
+    }
+    const hovered = entries.find((e) => e.id === hoveredEntryId);
+    if (!hovered?.moduleCode) {
+      setPaths([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function resolvePrereqCodes(moduleCode: string): Promise<string[]> {
+      const cached = prereqCache.current.get(moduleCode);
+      if (cached) return cached;
+      try {
+        const res = await fetch(`/api/modules/${moduleCode}/info`);
+        if (!res.ok) return [];
+        const data: { prereqCodes?: string[] } = await res.json();
+        const codes = (data.prereqCodes ?? []).map((c) => c.toUpperCase());
+        prereqCache.current.set(moduleCode, codes);
+        return codes;
+      } catch {
+        return [];
+      }
+    }
+
+    function draw(prereqCodes: string[]) {
+      if (cancelled || !container) return;
+      const containerRect = container.getBoundingClientRect();
+      setSize({ width: container.scrollWidth, height: container.scrollHeight });
+
+      const targetEl = document.getElementById(`entry-card-${hoveredEntryId}`);
+      if (!targetEl) {
+        setPaths([]);
+        return;
+      }
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetPoint = {
+        x: targetRect.left - containerRect.left,
+        y: targetRect.top + targetRect.height / 2 - containerRect.top,
+      };
+
+      const prereqSet = new Set(prereqCodes);
+      const next: { id: string; d: string }[] = [];
+      for (const entry of entries) {
+        if (entry.id === hoveredEntryId) continue;
+        if (!entry.moduleCode || !prereqSet.has(entry.moduleCode.toUpperCase())) continue;
+        const sourceEl = document.getElementById(`entry-card-${entry.id}`);
+        if (!sourceEl) continue;
+        const sourceRect = sourceEl.getBoundingClientRect();
+        const sourcePoint = {
+          x: sourceRect.right - containerRect.left,
+          y: sourceRect.top + sourceRect.height / 2 - containerRect.top,
+        };
+        const midX = (sourcePoint.x + targetPoint.x) / 2;
+        next.push({
+          id: entry.id,
+          d: `M ${sourcePoint.x} ${sourcePoint.y} C ${midX} ${sourcePoint.y}, ${midX} ${targetPoint.y}, ${targetPoint.x} ${targetPoint.y}`,
+        });
+      }
+      setPaths(next);
+    }
+
+    resolvePrereqCodes(hovered.moduleCode).then(draw);
+    const onResize = () => resolvePrereqCodes(hovered.moduleCode!).then(draw);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", onResize);
+    };
+  }, [hoveredEntryId, entries, containerRef]);
+
+  if (paths.length === 0) return null;
+
+  return (
+    <svg
+      className="pointer-events-none absolute left-0 top-0 z-10"
+      width={size.width}
+      height={size.height}
+      style={{ width: size.width, height: size.height }}
+    >
+      {paths.map((p) => (
+        <g key={p.id}>
+          <path d={p.d} fill="none" stroke="var(--accent)" strokeWidth={4} strokeOpacity={0.15} strokeLinecap="round" />
+          <path d={p.d} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeOpacity={0.9} strokeLinecap="round" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 
 // Shared card used by both the "by semester" and "by requirement" views -
 // same module info, status control and community-signal panel either way;
@@ -541,6 +667,8 @@ function EntryCard({
   onRequestAnalysis,
   onDelete,
   onStatusChange,
+  onHoverStart,
+  onHoverEnd,
 }: {
   entry: Entry;
   draggable: boolean;
@@ -556,6 +684,11 @@ function EntryCard({
   onRequestAnalysis: () => void;
   onDelete: () => void;
   onStatusChange: (status: Entry["status"]) => void;
+  // Only wired up from the "by semester" grid - used to drive the
+  // hover-to-reveal prerequisite connector overlay, not needed where the
+  // card isn't laid out spatially (the "by requirement" view).
+  onHoverStart?: () => void;
+  onHoverEnd?: () => void;
 }) {
   const showTitle = Boolean(entry.label && entry.label !== entry.moduleCode);
   const [glanceOpen, setGlanceOpen] = useState(false);
@@ -581,9 +714,13 @@ function EntryCard({
 
   return (
     <div
+      id={`entry-card-${entry.id}`}
+      data-module-code={entry.moduleCode ?? undefined}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
       className={`animate-fade-slide-in rounded-lg border border-border bg-page p-2 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm ${
         draggable ? "cursor-grab active:cursor-grabbing" : ""
       } ${isDragging ? "opacity-40" : ""}`}
