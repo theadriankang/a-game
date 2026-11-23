@@ -52,6 +52,20 @@ export function parseNusmodsShareLink(rawUrl: string): ParsedTimetableLink {
   }
   const semester = Number(semMatch[1]);
 
+  // NUSMods' own "hidden" query param lists modules that are unchecked in
+  // the share link's module list - still present in the URL (so the person
+  // can toggle them back on within NUSMods itself) but deliberately not
+  // part of the actual timetable, exactly like the unfilled checkbox next
+  // to a module's name in NUSMods' own UI. Without reading this, every
+  // module ever added to the link - including ones since unchecked or
+  // never really taken - rendered as if it were a real class.
+  const hiddenCodes = new Set(
+    (url.searchParams.get("hidden") ?? "")
+      .split(",")
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean)
+  );
+
   const selections: Record<string, Record<string, string>> = {};
   for (const [key, value] of url.searchParams.entries()) {
     // NUSMods module codes are uppercase letters/digits (e.g. CS1010S);
@@ -59,6 +73,7 @@ export function parseNusmodsShareLink(rawUrl: string): ParsedTimetableLink {
     // misread as a module.
     if (!/^[A-Z]{2,4}\d{4}[A-Z]?$/i.test(key)) continue;
     const moduleCode = key.toUpperCase();
+    if (hiddenCodes.has(moduleCode)) continue;
     const lessonSelections: Record<string, string> = {};
     for (const part of value.split(",")) {
       const [abbrev, classNo] = part.split(":");
