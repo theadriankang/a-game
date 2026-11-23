@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   getModuleInfo,
   flattenPrereqTree,
@@ -49,6 +50,42 @@ export default async function ModulePage({ params }: RouteParams) {
     getCachedAnalysis(moduleCode).then((a) => (a ? false : hasPendingRequest(moduleCode))),
   ]);
 
+  const prereqCodes = flattenPrereqTree(info.prereqTree);
+
+  // The prereq-path diagram is scoped to the signed-in user's own plan -
+  // same reasoning as the planner grid's hover connector lines: showing
+  // every module that could ever unlock this one would mean fetching
+  // NUSMods data for the entire module catalogue, which isn't feasible on
+  // a single page load. Scoped to one person's plan (tens of modules,
+  // not thousands), it's cheap and the only "unlocks" that actually
+  // matter to them anyway.
+  const planEntries = await prisma.plannerEntry.findMany({ where: { userId } });
+  const planCodes = new Set(
+    planEntries
+      .filter((e) => e.moduleCode)
+      .map((e) => e.moduleCode!.toUpperCase())
+  );
+
+  const inPlanPrereqCodes = prereqCodes.filter((c) => planCodes.has(c));
+
+  const otherPlanCodes = Array.from(planCodes).filter((c) => c !== moduleCode);
+  const unlocksChecks = await Promise.all(
+    otherPlanCodes.map(async (otherCode) => {
+      try {
+        const otherInfo = await getModuleInfo(NUSMODS_ACAD_YEAR, otherCode);
+        return flattenPrereqTree(otherInfo.prereqTree).includes(moduleCode) ? otherCode : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+  const unlocks = unlocksChecks
+    .filter((c): c is string => c !== null)
+    .map((unlockCode) => ({
+      moduleCode: unlockCode,
+      label: planEntries.find((e) => e.moduleCode?.toUpperCase() === unlockCode)?.label ?? unlockCode,
+    }));
+
   return (
     <ModuleDetailView
       moduleCode={info.moduleCode}
@@ -63,7 +100,9 @@ export default async function ModulePage({ params }: RouteParams) {
         examDate: s.examDate ?? null,
         examDuration: s.examDuration ?? null,
       }))}
-      prereqCodes={flattenPrereqTree(info.prereqTree)}
+      prereqCodes={prereqCodes}
+      inPlanPrereqCodes={inPlanPrereqCodes}
+      unlocks={unlocks}
       prereqSummary={formatPrereqTree(info.prereqTree)}
       preclusion={info.preclusion ?? null}
       corequisite={info.corequisite ?? null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type AnalysisData = {
@@ -26,6 +26,14 @@ type Props = {
   workload: number[] | null;
   semesterData: SemesterInfo[];
   prereqCodes: string[];
+  // Which of prereqCodes are already somewhere in the signed-in user's own
+  // plan (not necessarily completed yet) - drives the filled/muted state
+  // of each prereq node in the flow diagram.
+  inPlanPrereqCodes: string[];
+  // Other modules in the user's plan whose own prereq tree includes this
+  // module - i.e. what taking this unlocks, scoped to their plan rather
+  // than the entire NUSMods catalogue (see page.tsx for why).
+  unlocks: { moduleCode: string; label: string }[];
   prereqSummary: string | null;
   preclusion: string | null;
   corequisite: string | null;
@@ -56,6 +64,8 @@ export function ModuleDetailView(props: Props) {
     workload,
     semesterData,
     prereqCodes,
+    inPlanPrereqCodes,
+    unlocks,
     prereqSummary,
     preclusion,
     corequisite,
@@ -104,6 +114,22 @@ export function ModuleDetailView(props: Props) {
           </div>
         ) : null}
       </header>
+
+      <div className="mx-auto max-w-5xl px-7 pt-7">
+        <section className="rounded-xl border border-border bg-surface p-5">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-text3">
+            Prerequisite path
+          </h2>
+          <div className="mt-4">
+            <PrereqFlowDiagram
+              moduleCode={moduleCode}
+              prereqCodes={prereqCodes}
+              inPlanPrereqCodes={inPlanPrereqCodes}
+              unlocks={unlocks}
+            />
+          </div>
+        </section>
+      </div>
 
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-5 p-7 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-5">
@@ -256,6 +282,163 @@ export function ModuleDetailView(props: Props) {
               </button>
             )}
           </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A clean, static node-and-line diagram: this module's real prerequisites
+// feeding into it on the left, and whatever in the user's own plan depends
+// on it feeding out on the right - the same hover-connector idea from the
+// planner grid, but laid out as a permanent flow since there's no card
+// layout to hover here. Positions are measured off the actual rendered
+// chips (same technique as the planner's PrereqConnectorOverlay) so the
+// curves stay correct regardless of how many codes wrap to a second line.
+function PrereqFlowDiagram({
+  moduleCode,
+  prereqCodes,
+  inPlanPrereqCodes,
+  unlocks,
+}: {
+  moduleCode: string;
+  prereqCodes: string[];
+  inPlanPrereqCodes: string[];
+  unlocks: { moduleCode: string; label: string }[];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const leftRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const rightRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const [paths, setPaths] = useState<{ id: string; d: string }[]>([]);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  const inPlanSet = new Set(inPlanPrereqCodes);
+
+  useEffect(() => {
+    function measure() {
+      const container = containerRef.current;
+      const center = centerRef.current;
+      if (!container || !center) return;
+
+      const containerRect = container.getBoundingClientRect();
+      setSize({ width: container.scrollWidth, height: container.scrollHeight });
+
+      const centerRect = center.getBoundingClientRect();
+      const centerY = centerRect.top + centerRect.height / 2 - containerRect.top;
+      const centerLeftX = centerRect.left - containerRect.left;
+      const centerRightX = centerRect.right - containerRect.left;
+
+      const next: { id: string; d: string }[] = [];
+
+      leftRefs.current.forEach((el, code) => {
+        const r = el.getBoundingClientRect();
+        const fromX = r.right - containerRect.left;
+        const fromY = r.top + r.height / 2 - containerRect.top;
+        const midX = (fromX + centerLeftX) / 2;
+        next.push({
+          id: `l-${code}`,
+          d: `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${centerY}, ${centerLeftX} ${centerY}`,
+        });
+      });
+
+      rightRefs.current.forEach((el, code) => {
+        const r = el.getBoundingClientRect();
+        const toX = r.left - containerRect.left;
+        const toY = r.top + r.height / 2 - containerRect.top;
+        const midX = (centerRightX + toX) / 2;
+        next.push({
+          id: `r-${code}`,
+          d: `M ${centerRightX} ${centerY} C ${midX} ${centerY}, ${midX} ${toY}, ${toX} ${toY}`,
+        });
+      });
+
+      setPaths(next);
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [prereqCodes, unlocks]);
+
+  if (prereqCodes.length === 0 && unlocks.length === 0) {
+    return (
+      <p className="text-[13px] italic text-text3">
+        No prerequisites, and nothing in your plan depends on this module yet.
+      </p>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <svg
+        className="pointer-events-none absolute left-0 top-0"
+        width={size.width}
+        height={size.height}
+        style={{ width: size.width, height: size.height }}
+      >
+        {paths.map((p) => (
+          <g key={p.id}>
+            <path d={p.d} fill="none" stroke="var(--accent)" strokeWidth={4} strokeOpacity={0.12} strokeLinecap="round" />
+            <path d={p.d} fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeOpacity={0.8} strokeLinecap="round" />
+          </g>
+        ))}
+      </svg>
+
+      <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="flex flex-col items-end justify-center gap-2.5">
+          {prereqCodes.length === 0 ? (
+            <div className="text-[11.5px] italic text-text3">No prerequisites</div>
+          ) : (
+            prereqCodes.map((code) => (
+              <Link
+                key={code}
+                href={`/modules/${code}`}
+                ref={(el) => {
+                  if (el) leftRefs.current.set(code, el);
+                  else leftRefs.current.delete(code);
+                }}
+                title={inPlanSet.has(code) ? "Already in your plan" : "Not yet in your plan"}
+                className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                  inPlanSet.has(code)
+                    ? "border-accent bg-page text-accent"
+                    : "border-border bg-seg-bg text-text2 hover:border-accent hover:text-accent"
+                }`}
+              >
+                {code}
+              </Link>
+            ))
+          )}
+        </div>
+
+        <div
+          ref={centerRef}
+          className="whitespace-nowrap rounded-xl border-2 border-accent bg-accent px-5 py-3 text-center text-[14px] font-bold text-white"
+        >
+          {moduleCode}
+        </div>
+
+        <div className="flex flex-col items-start justify-center gap-2.5">
+          {unlocks.length === 0 ? (
+            <div className="text-[11.5px] italic text-text3">
+              Nothing in your plan depends on this yet
+            </div>
+          ) : (
+            unlocks.map((u) => (
+              <Link
+                key={u.moduleCode}
+                href={`/modules/${u.moduleCode}`}
+                ref={(el) => {
+                  if (el) rightRefs.current.set(u.moduleCode, el);
+                  else rightRefs.current.delete(u.moduleCode);
+                }}
+                title={u.label}
+                className="rounded-full border border-border bg-seg-bg px-3 py-1.5 text-[12px] font-semibold text-text2 transition-colors hover:border-accent hover:text-accent"
+              >
+                {u.moduleCode}
+              </Link>
+            ))
+          )}
         </div>
       </div>
     </div>
