@@ -8,7 +8,7 @@ import { polytechnics } from "@/lib/education-data/polytechnic-diplomas";
 // Modules are credited in multiples of 4 MC, so a free-typed number field
 // just invited typos (and had its own "0" display bug) for no benefit over
 // a short list of the values that are actually valid.
-const SU_BUDGET_OPTIONS = Array.from({ length: 16 }, (_, i) => i * 4); // 0, 4, ..., 60
+const SU_BUDGET_OPTIONS = Array.from({ length: 31 }, (_, i) => i * 2); // 0, 2, ..., 60
 
 const DEFAULT_FACULTY = "School of Computing";
 const DEFAULT_PROGRAMME = "Bachelor of Computing in Computer Science";

@@ -7,7 +7,7 @@ import { dbErrorResponse } from "@/lib/api-error";
 const onboardingSchema = z.object({
   programme: z.string().trim().min(1).max(100),
   priorDiploma: z.string().trim().max(150).optional().or(z.literal("")),
-  suBudgetTotalMc: z.coerce.number().int().min(0).max(60),
+  suBudgetTotalMc: z.coerce.number().int().min(0).max(60).multipleOf(2),
   // Module codes the user already has an approved credit transfer / exemption
   // for, e.g. ["CS2101", "IS1108"]. Free-typed, so normalize loosely.
   exemptions: z.array(z.string().trim().toUpperCase().min(1)).max(30),
