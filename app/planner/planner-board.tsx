@@ -741,9 +741,17 @@ function ModuleCodeField({
         const res = await fetch(`/api/modules/search?q=${encodeURIComponent(value.trim())}`);
         const data = await res.json();
         if (!cancelled) {
-          setResults(data.results ?? []);
-          setOpen((data.results ?? []).length > 0);
+          const found: ModuleSearchResult[] = data.results ?? [];
+          setResults(found);
+          setOpen(found.length > 0);
           setHighlighted(0);
+          // Warm the per-module MC lookup for every result shown, while the
+          // person is still reading the dropdown - by the time they click
+          // one, it typically resolves from cache instead of making them
+          // wait through a fresh NUSMods round trip after selecting.
+          for (const r of found) {
+            fetch(`/api/modules/${r.moduleCode}`).catch(() => {});
+          }
         }
       } catch {
         if (!cancelled) setResults([]);

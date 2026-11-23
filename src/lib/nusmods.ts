@@ -79,7 +79,21 @@ function academicYearPath(acadYear: string): string {
   return acadYear.replace("/", "-");
 }
 
+// In-process cache on top of Next's own fetch cache. Next's fetch cache
+// (the `next: { revalidate }` below) already avoids re-hitting NUSMods for
+// a repeat request, but every cache read still re-enters the fetch
+// pipeline and re-parses the JSON; for the module-code autocomplete,
+// which can re-resolve the same handful of popular codes many times a
+// minute, that overhead is the dominant cause of a slow "feels laggy"
+// autofill. This Map short-circuits an exact repeat within the same
+// server process straight to the already-parsed value - cheap, and
+// never used for anything that needs to be fresh within a request.
+const inProcessCache = new Map<string, unknown>();
+
 async function fetchJson<T>(path: string): Promise<T> {
+  const cached = inProcessCache.get(path);
+  if (cached !== undefined) return cached as T;
+
   const res = await fetch(`${NUSMODS_BASE}${path}`, {
     next: { revalidate: REVALIDATE_SECONDS },
   });
@@ -88,7 +102,9 @@ async function fetchJson<T>(path: string): Promise<T> {
       `NUSMods request failed (${res.status}) for ${path}`
     );
   }
-  return res.json() as Promise<T>;
+  const data = (await res.json()) as T;
+  inProcessCache.set(path, data);
+  return data;
 }
 
 export async function getModuleList(
@@ -115,8 +131,16 @@ export async function getModuleInfo(
 // any prerequisite exists at all).
 export function flattenPrereqTree(tree: PrereqTree | undefined): string[] {
   if (!tree) return [];
-  if (typeof tree === "string") return [tree];
-  if ("and" in tree) return tree.and.flatMap(flattenPrereqTree);
-  if ("or" in tree) return tree.or.flatMap(flattenPrereqTree);
+  // NUSMods encodes a minimum-grade requirement as "CODE:GRADE" (e.g.
+  // "MA1301:D") - strip that suffix so every caller compares against a
+  // plain module code. Without this, every single leaf in a prereq tree
+  // carried its ":D"/":CS" suffix, which never matched a real moduleCode
+  // string anywhere else in the app - so auto-plan.ts (the only consumer
+  // that compares these against other codes) warned that it "couldn't
+  // verify" essentially every prerequisite, even ones already completed,
+  // and its prereq-ordering check silently never actually gated anything.
+  if (typeof tree === "string") return [tree.split(":")[0]];
+  if ("and" in tree) return [...new Set(tree.and.flatMap(flattenPrereqTree))];
+  if ("or" in tree) return [...new Set(tree.or.flatMap(flattenPrereqTree))];
   return [];
 }

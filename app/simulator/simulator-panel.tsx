@@ -92,7 +92,19 @@ function ModuleCodeField({
     }
     const res = await fetch(`/api/modules/search?q=${encodeURIComponent(q)}`);
     if (!res.ok) return;
-    setResults(await res.json());
+    // The route returns { results: [...] }, not a bare array - this had
+    // been setting state to the whole envelope, so `results.length` (an
+    // object with no .length) was always falsy and the dropdown never
+    // actually appeared no matter how long someone waited.
+    const data: { results?: ModuleSearchResult[] } = await res.json();
+    const found = data.results ?? [];
+    setResults(found);
+    // Warm the per-module MC lookup for every result shown, same as the
+    // planner's version of this field - the follow-up fetch after
+    // selecting then usually resolves from cache instead of a fresh wait.
+    for (const r of found) {
+      fetch(`/api/modules/${r.moduleCode}`).catch(() => {});
+    }
   }
 
   return (
