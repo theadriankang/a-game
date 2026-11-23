@@ -32,6 +32,8 @@ const PRICE_PER_SEARCH = 0.01;
 export type ModuleResearchResult = {
   summary: string;
   tags: string[];
+  // Parallel to tags - see the schema comment on ModuleAnalysis.tagWeights.
+  tagWeights: number[];
   sources: string[];
   thinData: boolean;
   tokensUsed: number;
@@ -73,10 +75,10 @@ export async function researchModule(
 Then respond in exactly this format and nothing else:
 
 SUMMARY: <2-4 sentence neutral summary of what students commonly say>
-TAGS: <3-6 short comma-separated tags, e.g. Heavy workload, Team project, Bell curve, Easy A, Great prof>
+TAGS: <3-6 tags, each as "tag:weight" separated by commas - weight is 1-5, how often that sentiment showed up across the sources you found (5 = came up in most sources you read, 1 = only one source mentioned it). Example: Heavy workload:5, Team project:4, Bell curve:2, Great prof:1>
 THIN_DATA: <true if you found little to no public discussion to go on, false otherwise>
 
-Do not invent or guess at student sentiment if you can't find real discussion for it - say so plainly in the summary and set THIN_DATA to true instead.`,
+Do not invent or guess at student sentiment if you can't find real discussion for it - say so plainly in the summary and set THIN_DATA to true instead. Base each weight on what you actually saw repeated across sources, not a guess.`,
       },
     ],
   });
@@ -104,12 +106,30 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
     summaryMatch?.[1]?.trim() ||
     fullText.trim() ||
     "No summary could be generated for this module.";
-  const tags = tagsMatch?.[1]
-    ? tagsMatch[1]
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-    : [];
+
+  // Each raw tag is "label:weight" (weight 1-5). A tag with no parseable
+  // weight (model drifted from the format, or an older-style response)
+  // still gets kept with weight 3 - a safe middle value - rather than
+  // dropped, since the label itself is still useful even if the model
+  // didn't rate it.
+  const tags: string[] = [];
+  const tagWeights: number[] = [];
+  if (tagsMatch?.[1]) {
+    for (const raw of tagsMatch[1].split(",")) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      const parts = trimmed.split(":");
+      const label = parts[0]?.trim();
+      if (!label) continue;
+      const parsedWeight = parts[1] ? parseInt(parts[1].trim(), 10) : NaN;
+      const weight = Number.isFinite(parsedWeight)
+        ? Math.min(5, Math.max(1, parsedWeight))
+        : 3;
+      tags.push(label);
+      tagWeights.push(weight);
+    }
+  }
+
   const thinData = thinDataMatch?.[1]?.toLowerCase() === "true";
 
   const inputTokens = response.usage.input_tokens ?? 0;
@@ -123,6 +143,7 @@ Do not invent or guess at student sentiment if you can't find real discussion fo
   return {
     summary,
     tags,
+    tagWeights,
     sources: Array.from(sources),
     thinData,
     tokensUsed: inputTokens + outputTokens,

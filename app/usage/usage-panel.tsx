@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Odometer } from "@/components/odometer";
 
 type Totals = {
   count: number;
@@ -25,11 +26,11 @@ function formatUsd(value: number): string {
     : `${"$"}${value.toFixed(2)}`;
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="text-[12px] text-text3">{label}</div>
-      <div className="mt-1 text-[22px] font-semibold text-text1">{value}</div>
+      <div className="mt-1 text-[22px] font-semibold text-text1">{children}</div>
     </div>
   );
 }
@@ -68,16 +69,22 @@ export function UsagePanel({
 
       <main className="animate-fade-in p-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatPill label="Analysis requests logged" value={String(totals.count)} />
-          <StatPill
-            label="Tokens used"
-            value={totals.tokens.toLocaleString()}
-          />
-          <StatPill label="Estimated cost" value={formatUsd(totals.costUsd)} />
-          <StatPill
-            label="Auto vs on-demand"
-            value={`${totals.autoCount} / ${totals.onDemandCount}`}
-          />
+          {/* Odometer gives each tile a rolling-digit animation when
+              AutoRefresh (see page.tsx) pulls in a changed value, instead
+              of the number just jump-cutting to the new figure. */}
+          <StatPill label="Analysis requests logged">
+            <Odometer value={totals.count} />
+          </StatPill>
+          <StatPill label="Tokens used">
+            <Odometer value={totals.tokens} />
+          </StatPill>
+          <StatPill label="Estimated cost">
+            <Odometer value={totals.costUsd} format={formatUsd} />
+          </StatPill>
+          <StatPill label="Auto vs on-demand">
+            <Odometer value={totals.autoCount} /> <span className="text-text3">/</span>{" "}
+            <Odometer value={totals.onDemandCount} />
+          </StatPill>
         </div>
 
         <div className="mt-8">

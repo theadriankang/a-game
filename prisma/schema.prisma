@@ -131,6 +131,12 @@ model ModuleAnalysis {
   academicYear String        // which AY's offering this report covers
   summary     String         @db.Text
   tags        String[]       // e.g. ["Heavy workload", "Team project"]
+  // Parallel array, index-matched to tags: how often each tag's sentiment
+  // echoed across the sources Claude found (1 = one source, 5 = most
+  // sources) - drives the bubble/word-cloud sizing in the UI. Empty for
+  // reports generated before this field existed; the UI falls back to
+  // equal-sized bubbles when it's missing or short.
+  tagWeights  Int[]
   sources     String[]       // URLs or source descriptions, for transparency
   status      AnalysisStatus @default(PENDING)
   tokensUsed  Int?

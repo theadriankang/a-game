@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UsagePanel } from "./usage-panel";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function UsagePage() {
   const session = await getServerSession(authOptions);
@@ -53,5 +54,13 @@ export default async function UsagePage() {
     createdAt: r.createdAt.toISOString(),
   }));
 
-  return <UsagePanel totals={totals} recent={recent} />;
+  return (
+    <>
+      {/* Polls this page's own server data every few seconds so the
+          numbers (and the cron/on-demand processing you're watching)
+          update on their own - see auto-refresh.tsx. */}
+      <AutoRefresh intervalMs={5000} />
+      <UsagePanel totals={totals} recent={recent} />
+    </>
+  );
 }

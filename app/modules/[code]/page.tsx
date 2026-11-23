@@ -111,6 +111,7 @@ export default async function ModulePage({ params }: RouteParams) {
           ? {
               summary: analysis.summary,
               tags: analysis.tags,
+              tagWeights: analysis.tagWeights,
               sources: analysis.sources,
               status: analysis.status,
             }

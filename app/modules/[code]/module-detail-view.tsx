@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { TagCloud } from "@/components/tag-cloud";
 
 type AnalysisData = {
   summary: string;
   tags: string[];
+  tagWeights?: number[];
   sources: string[];
   status: "PENDING" | "COMPLETED" | "FAILED" | "THIN_DATA";
 };
@@ -266,6 +268,11 @@ export function ModuleDetailView(props: Props) {
                         {tag}
                       </span>
                     ))}
+                  </div>
+                ) : null}
+                {analysis.tags.length > 0 ? (
+                  <div className="rounded-lg border border-border bg-page/60 px-2">
+                    <TagCloud tags={analysis.tags} weights={analysis.tagWeights} />
                   </div>
                 ) : null}
                 {analysis.sources.length > 0 ? (

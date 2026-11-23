@@ -64,6 +64,7 @@ export async function runAndCacheAnalysis(
       academicYear: NUSMODS_ACAD_YEAR,
       summary: result.summary,
       tags: result.tags,
+      tagWeights: result.tagWeights,
       sources: result.sources,
       status: result.thinData ? AnalysisStatus.THIN_DATA : AnalysisStatus.COMPLETED,
       tokensUsed: result.tokensUsed,
@@ -72,6 +73,7 @@ export async function runAndCacheAnalysis(
     update: {
       summary: result.summary,
       tags: result.tags,
+      tagWeights: result.tagWeights,
       sources: result.sources,
       status: result.thinData ? AnalysisStatus.THIN_DATA : AnalysisStatus.COMPLETED,
       tokensUsed: result.tokensUsed,
