@@ -47,6 +47,8 @@ type Props = {
   suBudgetUsedMc: number;
   semesterEntries: Entry[];
   exemptionEntries: Entry[];
+  exemptionYear: number;
+  exemptionSemester: number;
   buckets: BucketProgress<Entry>[];
   bucketDefs: RequirementBucketDef[];
   degreeLabel: string;
@@ -101,6 +103,8 @@ export function PlannerBoard({
   suBudgetUsedMc,
   semesterEntries,
   exemptionEntries,
+  exemptionYear,
+  exemptionSemester,
   buckets,
   bucketDefs,
   degreeLabel,
@@ -306,23 +310,52 @@ export function PlannerBoard({
             </div>
           </div>
 
-          {exemptionEntries.length > 0 && (
-            <div>
-              <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-text3">
-                Exempted (APC)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
+          <div className="border-t border-border pt-4">
+            <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-text3">
+              Exempted / already taken
+            </div>
+            <div className="mb-1.5 text-[10.5px] leading-snug text-text3">
+              Credited outside the normal semester grid - APCs, winter/summer school, or anything
+              you&rsquo;re officially exempted from, not just a semester you&rsquo;re taking it in.
+            </div>
+            {exemptionEntries.length > 0 ? (
+              <div className="mb-2 flex flex-wrap gap-1.5">
                 {exemptionEntries.map((entry) => (
                   <span
                     key={entry.id}
-                    className="rounded-full border border-green-border bg-green-bg px-2 py-0.5 text-[11px] font-semibold text-green"
+                    className="group inline-flex items-center gap-1 rounded-full border border-green-border bg-green-bg px-2 py-0.5 text-[11px] font-semibold text-green"
                   >
                     {entry.moduleCode}
+                    <button
+                      onClick={() => deleteEntry(entry.id)}
+                      aria-label={`Remove ${entry.moduleCode}`}
+                      className="text-green opacity-60 transition-opacity hover:opacity-100"
+                    >
+                      ✕
+                    </button>
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            ) : null}
+
+            {addingTo === "exemption" ? (
+              <AddEntryForm
+                academicYear={exemptionYear}
+                semester={exemptionSemester}
+                onSubmit={addEntry}
+                onCancel={() => setAddingTo(null)}
+                hideStatus
+                defaultStatus="COMPLETED"
+              />
+            ) : (
+              <button
+                onClick={() => setAddingTo("exemption")}
+                className="w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] font-medium text-text2 transition-colors duration-150 hover:border-accent hover:text-accent"
+              >
+                + Add exempted module
+              </button>
+            )}
+          </div>
         </aside>
 
         <main className="flex flex-1 flex-col overflow-x-auto p-5">
@@ -993,6 +1026,8 @@ function AddEntryForm({
   semester,
   onSubmit,
   onCancel,
+  hideStatus,
+  defaultStatus = "PLANNED",
 }: {
   academicYear: number;
   semester: number;
@@ -1005,11 +1040,17 @@ function AddEntryForm({
     status: Entry["status"];
   }) => void;
   onCancel: () => void;
+  // Exemption entries (modules credited outside the normal semester grid -
+  // winter/summer school, APC, advanced standing) are always already
+  // official, so there's nothing to pick: showing "Planned"/"Reserved"
+  // there would just be confusing, unused options.
+  hideStatus?: boolean;
+  defaultStatus?: Entry["status"];
 }) {
   const [moduleCode, setModuleCode] = useState("");
   const [title, setTitle] = useState("");
   const [mc, setMc] = useState(4);
-  const [status, setStatus] = useState<Entry["status"]>("PLANNED");
+  const [status, setStatus] = useState<Entry["status"]>(defaultStatus);
   const [resolving, setResolving] = useState(false);
 
   async function handleSelect(mod: ModuleSearchResult) {
@@ -1065,15 +1106,17 @@ function AddEntryForm({
           onChange={(e) => setMc(Number(e.target.value))}
           className="w-16 rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none transition-colors focus-visible:border-accent"
         />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as Entry["status"])}
-          className="flex-1 rounded border border-border bg-surface px-1 py-1 text-[12.5px] outline-none"
-        >
-          <option value="PLANNED">Planned</option>
-          <option value="COMPLETED">Done</option>
-          <option value="RESERVED">Reserved</option>
-        </select>
+        {hideStatus ? null : (
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as Entry["status"])}
+            className="flex-1 rounded border border-border bg-surface px-1 py-1 text-[12.5px] outline-none"
+          >
+            <option value="PLANNED">Planned</option>
+            <option value="COMPLETED">Done</option>
+            <option value="RESERVED">Reserved</option>
+          </select>
+        )}
       </div>
       <div className="flex gap-1.5">
         <button

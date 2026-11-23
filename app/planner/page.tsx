@@ -89,6 +89,8 @@ export default async function PlannerPage() {
       suBudgetUsedMc={user.suBudgetUsedMc}
       semesterEntries={semesterEntries}
       exemptionEntries={exemptionEntries}
+      exemptionYear={EXEMPTION_YEAR}
+      exemptionSemester={EXEMPTION_SEMESTER}
       buckets={buckets}
       bucketDefs={degreeStructure.buckets}
       degreeLabel={degreeStructure.label}
