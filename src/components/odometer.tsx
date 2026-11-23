@@ -30,10 +30,29 @@ function formatValue(value: number, variant: Variant): string {
   return value.toLocaleString();
 }
 
-function DigitColumn({ digit }: { digit: number }) {
+// Shared by every character - digit columns AND plain punctuation. An
+// inline-block with non-visible overflow has its CSS baseline defined as
+// its own bottom edge rather than its text's baseline (that's the spec
+// rule, not a bug we can "turn off"). DigitColumn needs overflow-hidden
+// to clip the scrolling 0-9 strip, so its baseline is always bottom-edge.
+// If plain characters next to it ("$", ".", ",") were left as ordinary
+// text, they'd align by their *normal* text baseline instead - a
+// different reference line - and the mismatch is exactly what made "2"
+// in "$2.06" look like it was floating/shrunk relative to its neighbors.
+// Routing every character through this same boxed wrapper means they all
+// resolve to the same (consistent) baseline rule, so nothing drifts.
+function CharBox({ children }: { children: React.ReactNode }) {
   return (
     <span className="relative inline-block h-[1em] overflow-hidden align-baseline">
-      {/* Invisible 0-9 stack sets the column's width to one digit glyph. */}
+      {children}
+    </span>
+  );
+}
+
+function DigitColumn({ digit }: { digit: number }) {
+  return (
+    <CharBox>
+      {/* Invisible 0 sets the column's width to one digit glyph. */}
       <span className="invisible">0</span>
       <span
         className="absolute inset-0 flex flex-col transition-transform duration-500 ease-out"
@@ -45,7 +64,7 @@ function DigitColumn({ digit }: { digit: number }) {
           </span>
         ))}
       </span>
-    </span>
+    </CharBox>
   );
 }
 
@@ -62,9 +81,7 @@ export function Odometer({ value, variant = "number", className }: Props) {
         /[0-9]/.test(ch) ? (
           <DigitColumn key={i} digit={Number(ch)} />
         ) : (
-          <span key={i} className="inline-block">
-            {ch}
-          </span>
+          <CharBox key={i}>{ch}</CharBox>
         )
       )}
     </span>
