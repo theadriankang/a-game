@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { PasswordInput } from "@/components/password-input";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -97,8 +98,7 @@ export default function SignUpPage() {
           <span className="text-[13px] font-medium text-text1">
             Password
           </span>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={8}
             value={password}
