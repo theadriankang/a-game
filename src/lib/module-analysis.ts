@@ -1,7 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { NUSMODS_ACAD_YEAR, getModuleInfo } from "@/lib/nusmods";
 import { researchModule } from "@/lib/anthropic";
+import { researchModuleViaSoclaas } from "@/lib/soclaas";
 import { AnalysisStatus, AnalysisTrigger } from "@prisma/client";
+
+/**
+ * Which LLM backend to use for module research. Defaults to Anthropic
+ * (has live web search - see src/lib/anthropic.ts). Set LLM_PROVIDER=soclaas
+ * in .env to use NUS SoC's free gateway instead - see src/lib/soclaas.ts
+ * for why that path has no live web data and should be treated as a rough,
+ * free-to-test alternative rather than a drop-in replacement.
+ */
+function research(moduleCode: string, moduleTitle: string | null) {
+  return process.env.LLM_PROVIDER === "soclaas"
+    ? researchModuleViaSoclaas(moduleCode, moduleTitle)
+    : researchModule(moduleCode, moduleTitle);
+}
 
 /**
  * The shared, cached report for a module - same row read by every user,
@@ -58,7 +72,7 @@ export async function runAndCacheAnalysis(
   moduleCode: string,
   moduleTitle: string | null
 ) {
-  const result = await researchModule(moduleCode, moduleTitle);
+  const result = await research(moduleCode, moduleTitle);
 
   const analysis = await prisma.moduleAnalysis.upsert({
     where: { moduleCode_academicYear: { moduleCode, academicYear: NUSMODS_ACAD_YEAR } },
