@@ -80,6 +80,77 @@ function termKey(entry: { academicYear: number; semester: number }): number {
   return entry.academicYear * 10 + entry.semester;
 }
 
+// Past this many alternatives in an "or" group, show the first few and count the rest. A prerequisite like
+// "CS1010 or CS1010E or CS1010X or ... or UTC2851" is accurate but buries the answer.
+const MAX_ALTERNATIVES = 3;
+
+function rawLeaves(node: PrereqTree): string[] {
+  if (typeof node === "string") return [node];
+  return "and" in node ? node.and.flatMap(rawLeaves) : node.or.flatMap(rawLeaves);
+}
+
+/**
+ * The popover text for an unmet prerequisite, written for this student's plan:
+ *
+ * - An alternative that's already in the plan stands in for the whole "or" group. If CS2030S accepts any of nine
+ *   CS1010 variants and the student has CS1101S in the same semester, the problem is the order, so say that
+ *   rather than listing the other eight.
+ * - Otherwise, nothing relevant is in the plan: show the first few alternatives and count the rest.
+ * - A minimum grade shared by everything listed is said once instead of after every module.
+ *
+ * `termOfCode` maps module codes in the plan to their termKey; `entryTerm` is the checked module's own.
+ */
+function describeUnmetPrereqs(
+  moduleCode: string,
+  unmet: PrereqTree,
+  termOfCode: Map<string, number>,
+  entryTerm: number
+): string {
+  const inPlan = (node: PrereqTree) => flattenPrereqTree(node).some((c) => termOfCode.has(c.toUpperCase()));
+
+  const narrow = (node: PrereqTree): PrereqTree => {
+    if (typeof node === "string") return node;
+    if ("and" in node) return { and: node.and.map(narrow) };
+    const planned = node.or.filter(inPlan);
+    const kept = (planned.length > 0 ? planned : node.or).map(narrow);
+    return kept.length === 1 ? kept[0] : { or: kept };
+  };
+  const narrowed = narrow(unmet);
+
+  const where = (code: string) => (termOfCode.get(code.toUpperCase()) === entryTerm ? "the same" : "a later");
+
+  // The usual case: the one module that would do is already planned, just not early enough.
+  if (typeof narrowed === "string") {
+    const code = narrowed.split(":")[0];
+    if (termOfCode.has(code.toUpperCase())) {
+      return `${moduleCode} needs ${code} in an earlier semester, but it's in ${where(code)} semester.`;
+    }
+  }
+
+  const grades = new Set(rawLeaves(narrowed).map((leaf) => leaf.split(":")[1] ?? ""));
+  const sharedGrade = grades.size === 1 ? [...grades][0] : "";
+  const tidy = (node: PrereqTree): PrereqTree => {
+    if (typeof node === "string") return sharedGrade ? node.split(":")[0] : node;
+    if ("and" in node) return { and: node.and.map(tidy) };
+    const options = node.or.map(tidy);
+    return options.length > MAX_ALTERNATIVES
+      ? { or: [...options.slice(0, MAX_ALTERNATIVES), `${options.length - MAX_ALTERNATIVES} others`] }
+      : { or: options };
+  };
+
+  const needs = formatPrereqTree(tidy(narrowed)) ?? "its prerequisites";
+  let message = `${moduleCode} needs ${needs} in an earlier semester${sharedGrade ? `, with at least a ${sharedGrade}` : ""}.`;
+
+  // Whatever part of that is already planned, but not early enough.
+  const late = flattenPrereqTree(narrowed).filter((c) => termOfCode.has(c.toUpperCase()));
+  for (const group of [late.filter((c) => where(c) === "the same"), late.filter((c) => where(c) === "a later")]) {
+    if (group.length > 0) {
+      message += ` ${group.join(", ")} ${group.length > 1 ? "are" : "is"} in ${where(group[0])} semester.`;
+    }
+  }
+  return message;
+}
+
 /**
  * Checks every module-backed entry in a plan against the supplied NUSMods
  * module info, and returns any violations keyed by planner-entry id.
@@ -115,10 +186,14 @@ export function checkPlan(
   );
 
   const timesInPlan = new Map<string, number>();
+  // Where each module sits in the plan (its earliest copy), so a prerequisite message can speak about the
+  // student's own plan rather than listing modules they've no intention of taking.
+  const termOfCode = new Map<string, number>();
   for (const e of entries) {
     if (!e.moduleCode || e.status === "RESERVED") continue;
     const code = e.moduleCode.toUpperCase();
     timesInPlan.set(code, (timesInPlan.get(code) ?? 0) + 1);
+    termOfCode.set(code, Math.min(termOfCode.get(code) ?? Infinity, termKey(e)));
   }
 
   for (const entry of entries) {
@@ -153,17 +228,11 @@ export function checkPlan(
       );
       const unmet = unmetPrereqs(info.prereqTree, new Set([...takenBefore, ...assumed]));
       if (unmet) {
-        // Name what's actually missing. If some of it is already in the plan, just not early enough, say so:
-        // the fix is then to reorder, not to add a module.
-        const needs = formatPrereqTree(unmet);
-        const tooLate = flattenPrereqTree(unmet).filter((code) => takenAnywhere.has(code.toUpperCase()));
-        const message = needs
-          ? `${entry.moduleCode} needs ${needs} in an earlier semester.` +
-            (tooLate.length > 0
-              ? ` ${tooLate.join(", ")} ${tooLate.length > 1 ? "are" : "is"} in your plan, but not before it.`
-              : "")
-          : `Prerequisites for ${entry.moduleCode} aren't met by an earlier semester yet.`;
-        entryViolations.push({ moduleCode: entry.moduleCode, kind: "prereq", message });
+        entryViolations.push({
+          moduleCode: entry.moduleCode,
+          kind: "prereq",
+          message: describeUnmetPrereqs(entry.moduleCode, unmet, termOfCode, termKey(entry)),
+        });
       }
     }
 
