@@ -77,7 +77,9 @@ export default async function PlannerPage() {
     moduleInfoEntries
   );
 
-  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode, { mathBackground: user.mathBackground });
+  // placedEntries, not semesterEntries: exempted modules sit outside the grid but still count as taken, so they
+  // have to reach the checker or a prerequisite the student is exempt from gets flagged as unmet.
+  const violationsByEntryId = checkPlan(placedEntries, moduleInfoByCode, { mathBackground: user.mathBackground });
 
   // Modules NUS allows the S/U option on. The planner only offers the S/U button for these (a module whose
   // NUSMods data couldn't be fetched is left out, so it never offers S/U on a guess).

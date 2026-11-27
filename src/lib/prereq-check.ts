@@ -89,6 +89,8 @@ function termKey(entry: { academicYear: number; semester: number }): number {
  *   doesn't yet model corequisites, which NUSMods tracks separately).
  * - Preclusions are checked against the rest of the plan regardless of
  *   term, since taking a precluded pair in either order is still a clash.
+ * - Exempted modules (academicYear 0) must be included in `entries`: they satisfy prerequisites for anything in a
+ *   real semester, but are not themselves checked.
  * - RESERVED placeholder slots have no module code and are skipped.
  * - The same module appearing more than once is flagged on every copy. The planner no longer lets that happen,
  *   but plans made before then can still hold duplicates, and this is how they get noticed and cleaned up.
@@ -121,6 +123,9 @@ export function checkPlan(
 
   for (const entry of entries) {
     if (!entry.moduleCode || entry.status === "RESERVED") continue;
+    // Exempted modules (year 0) are credit already granted: they count towards everyone else's prerequisites,
+    // preclusions and duplicates above, but there's no semester to check them against.
+    if (entry.academicYear < 1) continue;
 
     const entryViolations: PrereqViolation[] = [];
 
