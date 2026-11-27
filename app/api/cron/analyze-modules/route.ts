@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const results: { moduleCode: string; status: string }[] = [];
 
   for (const req of pending) {
-    const finalStatus = await processAnalysisRequest(req.id, req.moduleCode);
+    const finalStatus = await processAnalysisRequest(req.id, req.moduleCode, req.userId);
 
     if (req.userId) {
       const link = await prisma.telegramLink.findUnique({

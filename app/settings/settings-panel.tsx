@@ -3,7 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-export function SettingsPanel() {
+type LlmProvider = "ANTHROPIC" | "SOCLAAS";
+
+type Props = {
+  initialLlmProvider: LlmProvider;
+};
+
+export function SettingsPanel({ initialLlmProvider }: Props) {
+  const [provider, setProvider] = useState<LlmProvider>(initialLlmProvider);
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [providerError, setProviderError] = useState<string | null>(null);
+
   const [connected, setConnected] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -23,6 +33,32 @@ export function SettingsPanel() {
   useEffect(() => {
     refreshStatus();
   }, []);
+
+  // Optimistic: flip the toggle immediately, roll back if the save fails.
+  async function updateProvider(next: LlmProvider) {
+    if (next === provider || savingProvider) return;
+    const previous = provider;
+    setProviderError(null);
+    setSavingProvider(true);
+    setProvider(next);
+    try {
+      const res = await fetch("/api/settings/llm-provider", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: next }),
+      });
+      if (!res.ok) {
+        setProvider(previous);
+        const data = await res.json().catch(() => null);
+        setProviderError(data?.error ?? "Couldn't save that - try again.");
+      }
+    } catch {
+      setProvider(previous);
+      setProviderError("Request failed.");
+    } finally {
+      setSavingProvider(false);
+    }
+  }
 
   async function connect() {
     setError(null);
@@ -77,6 +113,47 @@ export function SettingsPanel() {
 
       <div className="mx-auto max-w-lg p-7">
         <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="text-[14px] font-semibold text-text1">Module analysis</div>
+          <p className="mt-1 text-[12.5px] text-text3">
+            Which LLM runs your own &ldquo;Request analysis&rdquo; clicks on a module page.
+            Doesn&rsquo;t change reports already cached for everyone, or modules added
+            automatically from your plan - those always use the deployment&rsquo;s default.
+          </p>
+
+          <div className="mt-3 inline-flex rounded-lg border border-border bg-seg-bg p-1">
+            <button
+              onClick={() => updateProvider("ANTHROPIC")}
+              disabled={savingProvider}
+              className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-150 disabled:opacity-50 ${
+                provider === "ANTHROPIC"
+                  ? "bg-surface text-text1 shadow-sm"
+                  : "text-text3 hover:text-text2"
+              }`}
+            >
+              Claude
+            </button>
+            <button
+              onClick={() => updateProvider("SOCLAAS")}
+              disabled={savingProvider}
+              className={`rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-150 disabled:opacity-50 ${
+                provider === "SOCLAAS"
+                  ? "bg-surface text-text1 shadow-sm"
+                  : "text-text3 hover:text-text2"
+              }`}
+            >
+              SoCLaaS
+            </button>
+          </div>
+
+          <p className="mt-2.5 text-[11.5px] text-text3">
+            {provider === "SOCLAAS"
+              ? "SoCLaaS (NUS SoC's free LLM gateway) has no live web search, so its summaries are the model's own best guess from training data, not a fresh read of current discussion."
+              : "Claude has live web search, so its summaries reflect what students are currently saying - this is the default."}
+          </p>
+          {providerError ? <div className="mt-2 text-[12px] text-red">{providerError}</div> : null}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-border bg-surface p-4">
           <div className="text-[14px] font-semibold text-text1">Telegram notifications</div>
           <p className="mt-1 text-[12.5px] text-text3">
             Get a message when a module analysis you requested is ready, instead of having to

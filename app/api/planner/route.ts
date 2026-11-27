@@ -126,7 +126,7 @@ export async function POST(request: Request) {
         // route's own comment on why that's a backstop now, not the
         // primary path).
         if (queued) {
-          after(() => processAnalysisRequest(queued.id, moduleCode));
+          after(() => processAnalysisRequest(queued.id, moduleCode, queued.userId));
         }
       } catch (error) {
         console.error(`Failed to enqueue analysis for ${moduleCode}:`, error);

@@ -12,6 +12,9 @@ type AnalysisData = {
   keywordWeights?: number[];
   sources: string[];
   status: "PENDING" | "COMPLETED" | "FAILED" | "THIN_DATA";
+  // Which LLM actually produced this report - see Settings for how a
+  // user picks which one their own "Request analysis" clicks use.
+  provider: "ANTHROPIC" | "SOCLAAS";
 };
 
 type SemesterInfo = {
@@ -305,7 +308,8 @@ export function ModuleDetailView(props: Props) {
                   </div>
                 ) : null}
                 <p className="mt-1 text-[11px] text-text3">
-                  AI-synthesized from public discussion, not an official rating.
+                  AI-synthesized from public discussion, not an official rating · Analyzed by{" "}
+                  {analysis.provider === "SOCLAAS" ? "SoCLaaS" : "Claude"}
                 </p>
               </div>
             ) : pending ? (

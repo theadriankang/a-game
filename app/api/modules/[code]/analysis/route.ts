@@ -7,6 +7,7 @@ import {
   enqueueAnalysis,
   getCachedAnalysis,
   hasPendingRequest,
+  resolveProviderForUser,
   runAndCacheAnalysis,
 } from "@/lib/module-analysis";
 import { AnalysisStatus, AnalysisTrigger } from "@prisma/client";
@@ -73,13 +74,15 @@ export async function POST(_request: Request, { params }: RouteContext) {
         // research can still proceed on the code alone.
       }
 
-      const { analysis } = await runAndCacheAnalysis(moduleCode, title);
+      const provider = await resolveProviderForUser(userId);
+      const { analysis } = await runAndCacheAnalysis(moduleCode, title, provider);
       await prisma.analysisRequest.update({
         where: { id: request_.id },
         data: {
           status: analysis.status,
           tokensUsed: analysis.tokensUsed,
           costUsd: analysis.costUsd,
+          provider,
         },
       });
 

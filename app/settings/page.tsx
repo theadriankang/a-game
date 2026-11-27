@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { SettingsPanel } from "./settings-panel";
 
 export default async function SettingsPage() {
@@ -10,5 +11,10 @@ export default async function SettingsPage() {
     redirect("/sign-in");
   }
 
-  return <SettingsPanel />;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { preferredLlmProvider: true },
+  });
+
+  return <SettingsPanel initialLlmProvider={user?.preferredLlmProvider ?? "ANTHROPIC"} />;
 }

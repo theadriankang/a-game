@@ -130,6 +130,7 @@ export default async function ModulePage({ params }: RouteParams) {
               keywordWeights: analysis.keywordWeights,
               sources: analysis.sources,
               status: analysis.status,
+              provider: analysis.provider,
             }
           : null
       }
