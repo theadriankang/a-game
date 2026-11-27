@@ -35,8 +35,8 @@ export function OnboardingForm() {
   const [programme, setProgramme] = useState(DEFAULT_PROGRAMME);
 
   const [hasDiploma, setHasDiploma] = useState(false);
-  const [polytechnic, setPolytechnic] = useState(polytechnics[0].name);
-  const [diploma, setDiploma] = useState(polytechnics[0].schools[0].diplomas[0]);
+  const [polytechnic, setPolytechnic] = useState("");
+  const [diploma, setDiploma] = useState("");
 
   const intakeYears = useMemo(() => {
     const y = currentIntakeYear();
@@ -69,7 +69,7 @@ export function OnboardingForm() {
   );
 
   const polySuggestions = useSuggestions(
-    hasDiploma
+    hasDiploma && polytechnic && diploma
       ? { matriculationYear, faculty, programme, qualification: "POLYTECHNIC", institution: polytechnic, credential: diploma }
       : null
   );
@@ -148,8 +148,7 @@ export function OnboardingForm() {
 
   function handlePolytechnicChange(name: string) {
     setPolytechnic(name);
-    const first = polytechnics.find((p) => p.name === name)?.schools[0]?.diplomas[0];
-    if (first) setDiploma(first);
+    setDiploma(""); // diplomas differ by polytechnic, so the old choice no longer applies
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -258,8 +257,14 @@ export function OnboardingForm() {
             <select
               value={polytechnic}
               onChange={(e) => handlePolytechnicChange(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
+              required
+              className={`rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus-visible:border-accent ${
+                polytechnic ? "text-text0" : "text-text3"
+              }`}
             >
+              <option value="" disabled>
+                Select your polytechnic…
+              </option>
               {polytechnics.map((p) => (
                 <option key={p.name} value={p.name}>
                   {p.name}
@@ -275,8 +280,15 @@ export function OnboardingForm() {
             <select
               value={diploma}
               onChange={(e) => setDiploma(e.target.value)}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
+              required
+              disabled={!polytechnic}
+              className={`rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus-visible:border-accent disabled:opacity-60 ${
+                diploma ? "text-text0" : "text-text3"
+              }`}
             >
+              <option value="" disabled>
+                {polytechnic ? "Select your diploma course…" : "Choose a polytechnic first"}
+              </option>
               {schoolsForPolytechnic.map((s) => (
                 <optgroup key={s.school} label={s.school}>
                   {s.diplomas.map((d) => (
@@ -291,7 +303,11 @@ export function OnboardingForm() {
         </div>
       )}
 
-      {hasDiploma && (
+      {hasDiploma && !(polytechnic && diploma) && (
+        <p className="text-[12px] text-text3">Choose your polytechnic and diploma course to see suggested exemptions.</p>
+      )}
+
+      {hasDiploma && polytechnic && diploma && (
         <SuggestionList
           title="Suggested exemptions for your diploma"
           data={polySuggestions.data}
