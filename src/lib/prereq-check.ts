@@ -4,6 +4,7 @@
 // guessed at, so a gap in NUSMods' own data never produces a false
 // violation.
 
+import { flattenPrereqTree, formatPrereqTree } from "./nusmods";
 import type { ModuleInfo, PrereqTree } from "./nusmods";
 import { MATH_BRIDGING_CODES, assumedModulesFor } from "./qualifications";
 
@@ -39,6 +40,27 @@ export function evaluatePrereqTree(
   if ("and" in tree) return tree.and.every((node) => evaluatePrereqTree(node, satisfied));
   if ("or" in tree) return tree.or.some((node) => evaluatePrereqTree(node, satisfied));
   return true;
+}
+
+// What's left of a prereq tree once everything already satisfied is dropped, or null when the whole tree is
+// satisfied. An "and" keeps only its unmet branches; an "or" with any satisfied branch is met outright, and
+// otherwise keeps every branch (the student could still pick any one of them). Mirrors evaluatePrereqTree, so
+// it returns null exactly when that returns true.
+export function unmetPrereqs(
+  tree: PrereqTree | undefined,
+  satisfied: Set<string>
+): PrereqTree | null {
+  if (!tree) return null;
+  if (typeof tree === "string") return satisfied.has(tree.split(":")[0].toUpperCase()) ? null : tree;
+  if ("and" in tree) {
+    const unmet = tree.and.map((node) => unmetPrereqs(node, satisfied)).filter((n): n is PrereqTree => n !== null);
+    return unmet.length > 0 ? { and: unmet } : null;
+  }
+  if ("or" in tree) {
+    const unmet = tree.or.map((node) => unmetPrereqs(node, satisfied));
+    return unmet.every((n) => n !== null) ? { or: unmet as PrereqTree[] } : null;
+  }
+  return null;
 }
 
 // NUSMods' preclusion field is free text ("CS2040, CS2040S or CS2040C"),
@@ -124,12 +146,19 @@ export function checkPlan(
           )
           .map((e) => e.moduleCode!.toUpperCase())
       );
-      if (!evaluatePrereqTree(info.prereqTree, new Set([...takenBefore, ...assumed]))) {
-        entryViolations.push({
-          moduleCode: entry.moduleCode,
-          kind: "prereq",
-          message: `Prerequisites for ${entry.moduleCode} aren't met by an earlier semester yet.`,
-        });
+      const unmet = unmetPrereqs(info.prereqTree, new Set([...takenBefore, ...assumed]));
+      if (unmet) {
+        // Name what's actually missing. If some of it is already in the plan, just not early enough, say so:
+        // the fix is then to reorder, not to add a module.
+        const needs = formatPrereqTree(unmet);
+        const tooLate = flattenPrereqTree(unmet).filter((code) => takenAnywhere.has(code.toUpperCase()));
+        const message = needs
+          ? `${entry.moduleCode} needs ${needs} in an earlier semester.` +
+            (tooLate.length > 0
+              ? ` ${tooLate.join(", ")} ${tooLate.length > 1 ? "are" : "is"} in your plan, but not before it.`
+              : "")
+          : `Prerequisites for ${entry.moduleCode} aren't met by an earlier semester yet.`;
+        entryViolations.push({ moduleCode: entry.moduleCode, kind: "prereq", message });
       }
     }
 
