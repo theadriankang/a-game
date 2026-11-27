@@ -7,6 +7,7 @@ import Link from "next/link";
 import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
+import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
 
 type Entry = {
   id: string;
@@ -17,7 +18,12 @@ type Entry = {
   semester: number;
   status: "COMPLETED" | "PLANNED" | "RESERVED";
   requirementTag: string | null;
+  isSU: boolean;
 };
+
+// What the S/U button on a card should do: absent when the module can't be S/U'd at all (no button), otherwise
+// shown as on/off, and greyed out with a reason when turning it on wouldn't fit the budget.
+type SuControl = { on: boolean; blockedReason: string | null };
 
 type ModuleAnalysisData = {
   summary: string;
@@ -44,7 +50,8 @@ const WORKLOAD_LABELS = ["Lecture", "Tutorial", "Lab", "Project", "Self-study"];
 type Props = {
   userName: string | null;
   suBudgetTotalMc: number;
-  suBudgetUsedMc: number;
+  suWindowYears: number;
+  suEligibleCodes: string[];
   semesterEntries: Entry[];
   exemptionEntries: Entry[];
   exemptionYear: number;
@@ -100,7 +107,8 @@ function buildColumns(entries: Entry[], extraYears: number[]) {
 export function PlannerBoard({
   userName,
   suBudgetTotalMc,
-  suBudgetUsedMc,
+  suWindowYears,
+  suEligibleCodes,
   semesterEntries,
   exemptionEntries,
   exemptionYear,
@@ -122,6 +130,7 @@ export function PlannerBoard({
   const [view, setView] = useState<"semester" | "requirement">("semester");
   const [requestingCode, setRequestingCode] = useState<string | null>(null);
   const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const gridRowRef = useRef<HTMLDivElement>(null);
 
   async function requestAnalysis(moduleCode: string) {
@@ -143,25 +152,52 @@ export function PlannerBoard({
     router.refresh();
   }
 
-  async function changeStatus(id: string, status: Entry["status"]) {
-    await fetch(`/api/planner/${id}`, {
+  // One PATCH for every kind of edit. The server can refuse (e.g. a move that would push an S/U module past
+  // what the budget allows), so show its reason instead of silently doing nothing.
+  async function patchEntry(id: string, body: Record<string, unknown>) {
+    const res = await fetch(`/api/planner/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
     });
+    if (res.ok) {
+      setActionError(null);
+    } else {
+      const data = await res.json().catch(() => null);
+      setActionError(data?.error ?? "Couldn't save that change.");
+    }
     router.refresh();
+  }
+
+  function changeStatus(id: string, status: Entry["status"]) {
+    return patchEntry(id, { status });
   }
 
   // Drag-and-drop between semester columns reuses the same PATCH endpoint
   // that handles status changes - moving a module is just updating which
   // year/semester it belongs to.
-  async function moveEntry(id: string, academicYear: number, semester: number) {
-    await fetch(`/api/planner/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ academicYear, semester }),
-    });
-    router.refresh();
+  function moveEntry(id: string, academicYear: number, semester: number) {
+    return patchEntry(id, { academicYear, semester });
+  }
+
+  const suEntries = semesterEntries.filter((e) => e.isSU);
+  const suUsedMc = suUsage(suEntries, suWindowYears);
+  const suEligible = new Set(suEligibleCodes);
+  const suRemainingMc = Math.max(0, suBudgetTotalMc - suUsedMc.usedMc);
+
+  // Only offered for modules NUS allows S/U on (plus any already marked, so it can always be undone), and never
+  // for placeholders or exempted modules.
+  function suControlFor(entry: Entry): SuControl | null {
+    if (!entry.moduleCode || entry.status === "RESERVED") return null;
+    if (entry.academicYear === exemptionYear && entry.semester === exemptionSemester) return null;
+    if (entry.isSU) return { on: true, blockedReason: null };
+    if (!suEligible.has(entry.moduleCode.toUpperCase())) return null;
+    const fit = canUseSu(suEntries, entry, suBudgetTotalMc, suWindowYears);
+    return { on: false, blockedReason: fit.ok ? null : fit.reason };
+  }
+
+  function toggleSu(entry: Entry) {
+    return patchEntry(entry.id, { isSU: !entry.isSU });
   }
 
   async function addEntry(form: {
@@ -297,17 +333,29 @@ export function PlannerBoard({
             <div className="flex items-baseline justify-between text-[12.5px]">
               <span className="text-text1">S/U budget</span>
               <span className="tabular-nums text-text3">
-                {suBudgetUsedMc}/{suBudgetTotalMc} MC
+                {suUsedMc.usedMc}/{suBudgetTotalMc} MC
               </span>
             </div>
             <div className="mt-1 h-[5px] rounded-full bg-border">
               <div
-                className="h-full rounded-full bg-amber"
+                className="h-full rounded-full bg-amber transition-[width] duration-300"
                 style={{
-                  width: `${Math.min(100, (suBudgetUsedMc / Math.max(1, suBudgetTotalMc)) * 100)}%`,
+                  width: `${Math.min(100, (suUsedMc.usedMc / Math.max(1, suBudgetTotalMc)) * 100)}%`,
                 }}
               />
             </div>
+            {suBudgetTotalMc > 0 ? (
+              <div className="mt-1 text-[10.5px] leading-snug text-text3">
+                {suRemainingMc} MC left
+                {suBudgetTotalMc > ANYTIME_UNITS
+                  ? ` · only ${Math.max(0, Math.min(suRemainingMc, ANYTIME_UNITS - suUsedMc.laterMc))} MC of it usable after year ${suWindowYears}`
+                  : ""}
+              </div>
+            ) : (
+              <div className="mt-1 text-[10.5px] leading-snug text-text3">
+                The S/U option doesn&rsquo;t apply to you.
+              </div>
+            )}
           </div>
 
           <div className="border-t border-border pt-4">
@@ -359,6 +407,21 @@ export function PlannerBoard({
         </aside>
 
         <main className="flex flex-1 flex-col overflow-x-auto p-5">
+          {actionError ? (
+            <div
+              role="alert"
+              className="mb-4 flex max-w-3xl items-start justify-between gap-3 rounded-lg border border-red-border bg-red-bg px-3 py-2 text-[12.5px] text-red"
+            >
+              <span>{actionError}</span>
+              <button
+                onClick={() => setActionError(null)}
+                aria-label="Dismiss"
+                className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
           <div className="mb-4 inline-flex w-fit gap-0.5 rounded-lg border border-border bg-surface p-0.5">
             {(["semester", "requirement"] as const).map((v) => (
               <button
@@ -419,6 +482,8 @@ export function PlannerBoard({
                                 }
                                 onDelete={() => deleteEntry(entry.id)}
                                 onStatusChange={(status) => changeStatus(entry.id, status)}
+                                su={suControlFor(entry)}
+                                onToggleSu={() => toggleSu(entry)}
                               />
                             ))}
                           </div>
@@ -520,6 +585,8 @@ export function PlannerBoard({
                     onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
                     onDelete={() => deleteEntry(entry.id)}
                     onStatusChange={(status) => changeStatus(entry.id, status)}
+                    su={suControlFor(entry)}
+                    onToggleSu={() => toggleSu(entry)}
                     onHoverStart={() => setHoveredEntryId(entry.id)}
                     onHoverEnd={() => setHoveredEntryId((id) => (id === entry.id ? null : id))}
                   />
@@ -700,6 +767,8 @@ function EntryCard({
   onRequestAnalysis,
   onDelete,
   onStatusChange,
+  su,
+  onToggleSu,
   onHoverStart,
   onHoverEnd,
 }: {
@@ -717,6 +786,8 @@ function EntryCard({
   onRequestAnalysis: () => void;
   onDelete: () => void;
   onStatusChange: (status: Entry["status"]) => void;
+  su: SuControl | null;
+  onToggleSu: () => void;
   // Only wired up from the "by semester" grid - used to drive the
   // hover-to-reveal prerequisite connector overlay, not needed where the
   // card isn't laid out spatially (the "by requirement" view).
@@ -792,6 +863,31 @@ function EntryCard({
           <option value="COMPLETED">{STATUS_LABEL.COMPLETED}</option>
           <option value="RESERVED">{STATUS_LABEL.RESERVED}</option>
         </select>
+        {su ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (!su.blockedReason) onToggleSu();
+            }}
+            aria-pressed={su.on}
+            aria-disabled={su.blockedReason ? true : undefined}
+            title={
+              su.blockedReason ??
+              (su.on
+                ? `S/U on - uses ${entry.mc} MC of your S/U budget. Click to undo.`
+                : `NUS allows S/U on this module. Click to use ${entry.mc} MC of your S/U budget.`)
+            }
+            className={`rounded-full border px-1.5 py-0.5 text-[10.5px] font-semibold transition-colors ${
+              su.on
+                ? "border-accent bg-accent text-white"
+                : su.blockedReason
+                  ? "cursor-not-allowed border-border text-text3 opacity-60"
+                  : "border-border text-text2 hover:border-accent hover:text-accent"
+            }`}
+          >
+            S/U
+          </button>
+        ) : null}
         {violations?.length ? (
           <span
             title={violations.map((v) => v.message).join(" ")}
@@ -1049,37 +1145,69 @@ function AddEntryForm({
 }) {
   const [moduleCode, setModuleCode] = useState("");
   const [title, setTitle] = useState("");
-  const [mc, setMc] = useState(4);
+  // Units come from the module database, never from the person: null until
+  // a module has been looked up.
+  const [mc, setMc] = useState<number | null>(null);
   const [status, setStatus] = useState<Entry["status"]>(defaultStatus);
   const [resolving, setResolving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Guards against a slow lookup for an earlier pick overwriting a later one.
+  const lookupSeq = useRef(0);
+
+  async function lookupModule(code: string): Promise<{ title: string; mc: number } | null> {
+    const seq = ++lookupSeq.current;
+    setResolving(true);
+    try {
+      const res = await fetch(`/api/modules/${encodeURIComponent(code)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (seq !== lookupSeq.current) return null;
+      return { title: data.title, mc: data.mc };
+    } catch {
+      return null;
+    } finally {
+      if (seq === lookupSeq.current) setResolving(false);
+    }
+  }
 
   async function handleSelect(mod: ModuleSearchResult) {
     setTitle(mod.title);
-    setResolving(true);
-    try {
-      const res = await fetch(`/api/modules/${mod.moduleCode}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMc(data.mc);
+    const found = await lookupModule(mod.moduleCode);
+    if (found) setMc(found.mc);
+    else setError("Couldn't load this module's units. Try selecting it again.");
+  }
+
+  async function handleSubmit() {
+    const code = moduleCode.trim().toUpperCase();
+    if (!code) return;
+    let finalMc = mc;
+    let finalTitle = title;
+    // Typed a full code without picking it from the dropdown: look it up now
+    // so the units are still the database's, not a guess.
+    if (finalMc === null) {
+      const found = await lookupModule(code);
+      if (!found) {
+        setError("Couldn't find that module. Pick one from the list.");
+        return;
       }
-    } finally {
-      setResolving(false);
+      finalMc = found.mc;
+      finalTitle = found.title;
     }
+    onSubmit({
+      academicYear,
+      semester,
+      moduleCode: code,
+      label: (finalTitle || code).trim(),
+      mc: finalMc,
+      status,
+    });
   }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!moduleCode.trim()) return;
-        onSubmit({
-          academicYear,
-          semester,
-          moduleCode: moduleCode.trim().toUpperCase(),
-          label: (title || moduleCode).trim(),
-          mc,
-          status,
-        });
+        void handleSubmit();
       }}
       className="mt-2 flex animate-fade-slide-in flex-col gap-1.5 rounded-lg border border-border bg-page p-2"
     >
@@ -1088,6 +1216,8 @@ function AddEntryForm({
         onChange={(v) => {
           setModuleCode(v);
           setTitle("");
+          setMc(null);
+          setError(null);
         }}
         onSelect={handleSelect}
       />
@@ -1098,14 +1228,12 @@ function AddEntryForm({
         </div>
       ) : null}
       <div className="flex gap-1.5">
-        <input
-          type="number"
-          min={0}
-          max={40}
-          value={mc}
-          onChange={(e) => setMc(Number(e.target.value))}
-          className="w-16 rounded border border-border bg-surface px-2 py-1 text-[12.5px] outline-none transition-colors focus-visible:border-accent"
-        />
+        <div
+          aria-label="Module credits"
+          className="flex min-w-14 items-center justify-center whitespace-nowrap rounded border border-border bg-seg-bg px-2 py-1 text-[12.5px] font-medium text-text2"
+        >
+          {mc === null ? "– MC" : `${mc} MC`}
+        </div>
         {hideStatus ? null : (
           <select
             value={status}
@@ -1118,10 +1246,12 @@ function AddEntryForm({
           </select>
         )}
       </div>
+      {error ? <div className="px-0.5 text-[11px] leading-snug text-red">{error}</div> : null}
       <div className="flex gap-1.5">
         <button
           type="submit"
-          className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white transition-transform duration-100 active:scale-[0.98]"
+          disabled={resolving}
+          className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
         >
           Add
         </button>
