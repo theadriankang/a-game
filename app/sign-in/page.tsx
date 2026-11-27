@@ -73,6 +73,13 @@ export default function SignInPage() {
           />
         </label>
 
+        <Link
+          href="/forgot-password"
+          className="-mt-2 self-end text-[13px] font-medium text-accent"
+        >
+          Forgot password?
+        </Link>
+
         {error && <p className="text-[13px] text-red">{error}</p>}
 
         <button

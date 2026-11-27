@@ -50,6 +50,14 @@ model User {
   telegramLinkToken          String?   @unique
   telegramLinkTokenExpiresAt DateTime?
 
+  // Forgot-password flow. Unlike telegramLinkToken above, this stores a
+  // SHA-256 hash of the token, never the raw value - a leaked DB row alone
+  // then can't be used to reset the account, since the raw token only ever
+  // lives in the emailed link. Cleared on successful reset or overwritten
+  // by a newer request (only the latest requested link stays valid).
+  passwordResetTokenHash      String?   @unique
+  passwordResetTokenExpiresAt DateTime?
+
   accounts        Account[]
   sessions        Session[]
   plannerEntries  PlannerEntry[]
