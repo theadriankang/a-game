@@ -8,6 +8,7 @@ import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requireme
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
 import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
+import { SuBudgetDialog, type SuDialogEntry } from "./su-budget-dialog";
 
 type Entry = {
   id: string;
@@ -21,9 +22,15 @@ type Entry = {
   isSU: boolean;
 };
 
-// What the S/U button on a card should do: absent when the module can't be S/U'd at all (no button), otherwise
-// shown as on/off, and greyed out with a reason when turning it on wouldn't fit the budget.
-type SuControl = { on: boolean; blockedReason: string | null };
+// What the S/U button on a card shows: absent when the module can't be S/U'd at all (no button), otherwise on or
+// off. Pressing it when that would go over the budget opens the picker instead of being refused.
+type SuControl = { on: boolean };
+
+// A change held back because it would bust the S/U budget, until the student picks which modules to keep.
+type SuConflict = {
+  entryId: string;
+  patch: { isSU: true } | { academicYear: number; semester: number };
+};
 
 type ModuleAnalysisData = {
   summary: string;
@@ -131,6 +138,8 @@ export function PlannerBoard({
   const [requestingCode, setRequestingCode] = useState<string | null>(null);
   const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [suConflict, setSuConflict] = useState<SuConflict | null>(null);
+  const [suSaving, setSuSaving] = useState(false);
   const gridRowRef = useRef<HTMLDivElement>(null);
 
   async function requestAnalysis(moduleCode: string) {
@@ -177,6 +186,17 @@ export function PlannerBoard({
   // that handles status changes - moving a module is just updating which
   // year/semester it belongs to.
   function moveEntry(id: string, academicYear: number, semester: number) {
+    // Moving an S/U module into a later year can bust the budget (only the any-time units cover those years),
+    // so ask which modules to keep rather than moving it and then refusing.
+    const entry = semesterEntries.find((e) => e.id === id);
+    if (entry?.isSU) {
+      const others = suEntries.filter((e) => e.id !== id);
+      if (!canUseSu(others, { academicYear, mc: entry.mc }, suBudgetTotalMc, suWindowYears).ok) {
+        setActionError(null);
+        setSuConflict({ entryId: id, patch: { academicYear, semester } });
+        return;
+      }
+    }
     return patchEntry(id, { academicYear, semester });
   }
 
@@ -190,14 +210,54 @@ export function PlannerBoard({
   function suControlFor(entry: Entry): SuControl | null {
     if (!entry.moduleCode || entry.status === "RESERVED") return null;
     if (entry.academicYear === exemptionYear && entry.semester === exemptionSemester) return null;
-    if (entry.isSU) return { on: true, blockedReason: null };
+    if (entry.isSU) return { on: true };
+    // A budget of 0 means the scheme doesn't apply to this student at all.
+    if (suBudgetTotalMc <= 0) return null;
     if (!suEligible.has(entry.moduleCode.toUpperCase())) return null;
-    const fit = canUseSu(suEntries, entry, suBudgetTotalMc, suWindowYears);
-    return { on: false, blockedReason: fit.ok ? null : fit.reason };
+    return { on: false };
   }
 
   function toggleSu(entry: Entry) {
-    return patchEntry(entry.id, { isSU: !entry.isSU });
+    if (entry.isSU) return patchEntry(entry.id, { isSU: false });
+    if (!canUseSu(suEntries, entry, suBudgetTotalMc, suWindowYears).ok) {
+      setActionError(null);
+      setSuConflict({ entryId: entry.id, patch: { isSU: true } });
+      return;
+    }
+    return patchEntry(entry.id, { isSU: true });
+  }
+
+  // The picker lists every module that would be on S/U, the one being changed included (in its new place if it
+  // is being moved), so it opens over budget and the student unticks their way back under.
+  const conflictEntry = suConflict ? semesterEntries.find((e) => e.id === suConflict.entryId) : undefined;
+  const suDialogEntries: SuDialogEntry[] = conflictEntry
+    ? [...suEntries.filter((e) => e.id !== conflictEntry.id), conflictEntry].map((e) => ({
+        id: e.id,
+        moduleCode: e.moduleCode ?? e.label,
+        label: e.label,
+        mc: e.mc,
+        academicYear:
+          e.id === conflictEntry.id && suConflict && "academicYear" in suConflict.patch
+            ? suConflict.patch.academicYear
+            : e.academicYear,
+        semester:
+          e.id === conflictEntry.id && suConflict && "semester" in suConflict.patch
+            ? suConflict.patch.semester
+            : e.semester,
+      }))
+    : [];
+
+  async function applySuChoice(selectedIds: string[]) {
+    if (!suConflict || !conflictEntry) return;
+    const selected = new Set(selectedIds);
+    setSuSaving(true);
+    await patchEntry(conflictEntry.id, {
+      ...suConflict.patch,
+      isSU: selected.has(conflictEntry.id),
+      offSU: suDialogEntries.filter((e) => e.id !== conflictEntry.id && !selected.has(e.id)).map((e) => e.id),
+    });
+    setSuSaving(false);
+    setSuConflict(null);
   }
 
   async function addEntry(form: {
@@ -207,14 +267,21 @@ export function PlannerBoard({
     label: string;
     mc: number;
     status: Entry["status"];
-  }) {
-    await fetch("/api/planner", {
+  }): Promise<string | null> {
+    const res = await fetch("/api/planner", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      // Leave the form open with the reason (e.g. the module is already in the plan) rather than closing it
+      // as if the add had worked.
+      const data = await res.json().catch(() => null);
+      return data?.error ?? "Couldn't add that module.";
+    }
     setAddingTo(null);
     router.refresh();
+    return null;
   }
 
   const totalRequired = buckets.reduce((sum, b) => sum + b.requiredMc, 0);
@@ -243,6 +310,12 @@ export function PlannerBoard({
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >
             Timetable
+          </Link>
+          <Link
+            href="/modules"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Modules
           </Link>
           <Link
             href="/minors"
@@ -630,6 +703,24 @@ export function PlannerBoard({
           )}
         </main>
       </div>
+
+      {suConflict && conflictEntry ? (
+        <SuBudgetDialog
+          action={
+            "isSU" in suConflict.patch
+              ? `Using S/U on ${conflictEntry.moduleCode ?? conflictEntry.label}`
+              : `Moving ${conflictEntry.moduleCode ?? conflictEntry.label} to Year ${suConflict.patch.academicYear}`
+          }
+          entries={suDialogEntries}
+          highlightId={conflictEntry.id}
+          highlightTag={"isSU" in suConflict.patch ? "New" : "Moving"}
+          totalMc={suBudgetTotalMc}
+          windowYears={suWindowYears}
+          saving={suSaving}
+          onCancel={() => setSuConflict(null)}
+          onDone={applySuChoice}
+        />
+      ) : null}
     </div>
   );
 }
@@ -866,23 +957,17 @@ function EntryCard({
         {su ? (
           <button
             type="button"
-            onClick={() => {
-              if (!su.blockedReason) onToggleSu();
-            }}
+            onClick={onToggleSu}
             aria-pressed={su.on}
-            aria-disabled={su.blockedReason ? true : undefined}
             title={
-              su.blockedReason ??
-              (su.on
+              su.on
                 ? `S/U on - uses ${entry.mc} MC of your S/U budget. Click to undo.`
-                : `NUS allows S/U on this module. Click to use ${entry.mc} MC of your S/U budget.`)
+                : `NUS allows S/U on this module. Click to use ${entry.mc} MC of your S/U budget.`
             }
             className={`rounded-full border px-1.5 py-0.5 text-[10.5px] font-semibold transition-colors ${
               su.on
                 ? "border-accent bg-accent text-white"
-                : su.blockedReason
-                  ? "cursor-not-allowed border-border text-text3 opacity-60"
-                  : "border-border text-text2 hover:border-accent hover:text-accent"
+                : "border-border text-text2 hover:border-accent hover:text-accent"
             }`}
           >
             S/U
@@ -1134,7 +1219,7 @@ function AddEntryForm({
     label: string;
     mc: number;
     status: Entry["status"];
-  }) => void;
+  }) => Promise<string | null>;
   onCancel: () => void;
   // Exemption entries (modules credited outside the normal semester grid -
   // winter/summer school, APC, advanced standing) are always already
@@ -1151,6 +1236,8 @@ function AddEntryForm({
   const [status, setStatus] = useState<Entry["status"]>(defaultStatus);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True while the add request is in flight, so a double click can't add the module twice.
+  const [submitting, setSubmitting] = useState(false);
   // Guards against a slow lookup for an earlier pick overwriting a later one.
   const lookupSeq = useRef(0);
 
@@ -1193,14 +1280,20 @@ function AddEntryForm({
       finalMc = found.mc;
       finalTitle = found.title;
     }
-    onSubmit({
-      academicYear,
-      semester,
-      moduleCode: code,
-      label: (finalTitle || code).trim(),
-      mc: finalMc,
-      status,
-    });
+    setSubmitting(true);
+    try {
+      const problem = await onSubmit({
+        academicYear,
+        semester,
+        moduleCode: code,
+        label: (finalTitle || code).trim(),
+        mc: finalMc,
+        status,
+      });
+      if (problem) setError(problem);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -1250,7 +1343,7 @@ function AddEntryForm({
       <div className="flex gap-1.5">
         <button
           type="submit"
-          disabled={resolving}
+          disabled={resolving || submitting}
           className="flex-1 rounded bg-accent py-1 text-[12px] font-semibold text-white transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
         >
           Add

@@ -25,7 +25,7 @@ model User {
   programme       String?  // e.g. "BComp (Computer Science)"
   priorDiploma    String?  // e.g. "SP Engineering with Business", nullable
   suBudgetTotalMc Int      @default(32)
-  suBudgetUsedMc  Int      @default(0)
+  suBudgetUsedMc  Int      @default(0) // unused: S/U used is derived from PlannerEntry.isSU (docs/su-budget.md)
 
   // Start year of the academic year the user matriculated in (2023 for
   // AY2023/24). Drives which year's exemption rules apply to them, since
@@ -107,6 +107,7 @@ model PlannerEntry {
   semester     Int        // 1 or 2
   status       PlanStatus
   requirementTag String?  // which degree-requirement bucket this counts toward
+  isSU         Boolean    @default(false) // uses the S/U option; only ever set on modules NUS allows S/U on (src/lib/su-budget.ts)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

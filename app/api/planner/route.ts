@@ -7,6 +7,7 @@ import { enqueueAnalysis } from "@/lib/module-analysis";
 import { isCompulsoryModuleCode } from "@/lib/degree-requirements/bucket";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { AnalysisTrigger } from "@prisma/client";
+import { duplicateMessage, findDuplicateEntry } from "@/lib/planner-duplicates";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
@@ -64,6 +65,14 @@ export async function POST(request: Request) {
     parsed.data;
 
   try {
+    // The same module can't go in the plan twice (placeholders have no code and are exempt).
+    if (moduleCode) {
+      const existing = await findDuplicateEntry(userId, moduleCode);
+      if (existing) {
+        return NextResponse.json({ error: duplicateMessage(moduleCode, existing) }, { status: 409 });
+      }
+    }
+
     const entry = await prisma.plannerEntry.create({
       data: {
         userId,

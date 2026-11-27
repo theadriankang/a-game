@@ -8,7 +8,7 @@ import type { ModuleInfo, PrereqTree } from "./nusmods";
 
 export type PrereqViolation = {
   moduleCode: string;
-  kind: "prereq" | "preclusion";
+  kind: "prereq" | "preclusion" | "duplicate";
   message: string;
 };
 
@@ -67,6 +67,8 @@ function termKey(entry: { academicYear: number; semester: number }): number {
  * - Preclusions are checked against the rest of the plan regardless of
  *   term, since taking a precluded pair in either order is still a clash.
  * - RESERVED placeholder slots have no module code and are skipped.
+ * - The same module appearing more than once is flagged on every copy. The planner no longer lets that happen,
+ *   but plans made before then can still hold duplicates, and this is how they get noticed and cleaned up.
  */
 export function checkPlan(
   entries: CheckableEntry[],
@@ -80,14 +82,30 @@ export function checkPlan(
       .map((e) => e.moduleCode!.toUpperCase())
   );
 
+  const timesInPlan = new Map<string, number>();
+  for (const e of entries) {
+    if (!e.moduleCode || e.status === "RESERVED") continue;
+    const code = e.moduleCode.toUpperCase();
+    timesInPlan.set(code, (timesInPlan.get(code) ?? 0) + 1);
+  }
+
   for (const entry of entries) {
     if (!entry.moduleCode || entry.status === "RESERVED") continue;
-    const info = moduleInfoByCode[entry.moduleCode.toUpperCase()];
-    if (!info) continue; // couldn't fetch this module's data — no constraint assumed
 
     const entryViolations: PrereqViolation[] = [];
 
-    if (info.prereqTree) {
+    const copies = timesInPlan.get(entry.moduleCode.toUpperCase()) ?? 1;
+    if (copies > 1) {
+      entryViolations.push({
+        moduleCode: entry.moduleCode,
+        kind: "duplicate",
+        message: `${entry.moduleCode} is in your plan ${copies} times. Remove the extra copies.`,
+      });
+    }
+
+    const info = moduleInfoByCode[entry.moduleCode.toUpperCase()];
+    // Couldn't fetch this module's data: no prereq/preclusion constraint assumed.
+    if (info?.prereqTree) {
       const takenBefore = new Set(
         entries
           .filter(
@@ -107,7 +125,7 @@ export function checkPlan(
       }
     }
 
-    const precludedBy = extractModuleCodes(info.preclusion).filter(
+    const precludedBy = extractModuleCodes(info?.preclusion).filter(
       (code) => code !== entry.moduleCode!.toUpperCase() && takenAnywhere.has(code)
     );
     if (precludedBy.length > 0) {
