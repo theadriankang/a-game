@@ -66,7 +66,7 @@ export default async function PlannerPage() {
     moduleInfoEntries
   );
 
-  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode);
+  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode, { mathBackground: user.mathBackground });
 
   // Community-signal reports: pull whatever's already cached for the
   // modules in this plan, plus which ones (if any) are still queued, so

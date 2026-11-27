@@ -5,6 +5,7 @@
 // violation.
 
 import type { ModuleInfo, PrereqTree } from "./nusmods";
+import { MATH_BRIDGING_CODES, assumedModulesFor } from "./qualifications";
 
 export type PrereqViolation = {
   moduleCode: string;
@@ -70,9 +71,16 @@ function termKey(entry: { academicYear: number; semester: number }): number {
  */
 export function checkPlan(
   entries: CheckableEntry[],
-  moduleInfoByCode: Record<string, ModuleInfo | undefined>
+  moduleInfoByCode: Record<string, ModuleInfo | undefined>,
+  /**
+   * What the student told us about their maths background (see qualifications.ts). Many prerequisites read
+   * "H2 Math OR MA1301", but NUSMods' tree keeps only the MA1301 branch, so a student NUS treats as covered
+   * would otherwise be flagged for a module they were never meant to take.
+   */
+  options: { mathBackground?: string | null } = {}
 ): Map<string, PrereqViolation[]> {
   const violations = new Map<string, PrereqViolation[]>();
+  const assumed = assumedModulesFor(options.mathBackground);
 
   const takenAnywhere = new Set(
     entries
@@ -98,13 +106,23 @@ export function checkPlan(
           )
           .map((e) => e.moduleCode!.toUpperCase())
       );
-      if (!evaluatePrereqTree(info.prereqTree, takenBefore)) {
+      if (!evaluatePrereqTree(info.prereqTree, new Set([...takenBefore, ...assumed]))) {
         entryViolations.push({
           moduleCode: entry.moduleCode,
           kind: "prereq",
           message: `Prerequisites for ${entry.moduleCode} aren't met by an earlier semester yet.`,
         });
       }
+    }
+
+    // NUS precludes the bridging module for anyone with A-level Math (certificate and test holders are "deemed"
+    // covered rather than precluded, so they aren't flagged here).
+    if (options.mathBackground === "H2" && MATH_BRIDGING_CODES.includes(entry.moduleCode.toUpperCase())) {
+      entryViolations.push({
+        moduleCode: entry.moduleCode,
+        kind: "preclusion",
+        message: `${entry.moduleCode} is a bridging module for students without H2 Math; NUS doesn't let you take it with your maths background.`,
+      });
     }
 
     const precludedBy = extractModuleCodes(info.preclusion).filter(

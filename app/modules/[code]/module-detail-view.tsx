@@ -35,6 +35,8 @@ type Props = {
   // than the entire NUSMods catalogue (see page.tsx for why).
   unlocks: { moduleCode: string; label: string }[];
   prereqSummary: string | null;
+  // Student-specific context for the prerequisites above (e.g. covered by H2 Math), or null.
+  prereqNote: string | null;
   preclusion: string | null;
   corequisite: string | null;
   analysis: AnalysisData | null;
@@ -67,6 +69,7 @@ export function ModuleDetailView(props: Props) {
     inPlanPrereqCodes,
     unlocks,
     prereqSummary,
+    prereqNote,
     preclusion,
     corequisite,
     analysis,
@@ -150,6 +153,7 @@ export function ModuleDetailView(props: Props) {
                 <dd className="mt-1 text-text1">
                   {prereqSummary ?? <span className="italic text-text3">None</span>}
                 </dd>
+                {prereqNote ? <p className="mt-1 text-[12px] leading-snug text-text3">{prereqNote}</p> : null}
                 {prereqCodes.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {prereqCodes.map((code) => (

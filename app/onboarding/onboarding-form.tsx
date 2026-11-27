@@ -7,6 +7,8 @@ import { polytechnics } from "@/lib/education-data/polytechnic-diplomas";
 import { H3Guidance, SuggestionList, useSuggestions, type SuggestedModule } from "./exemption-suggestions";
 import { ModuleCodeInput, type ChosenModule } from "./module-code-input";
 import { SuBudgetCard } from "./su-budget-card";
+import { MathBackgroundField } from "./math-background-field";
+import type { MathBackground } from "@/lib/qualifications";
 import { computeSuBudget, totalApcUnits, type PriorUniversity } from "@/lib/su-budget";
 
 // Exemption lists are published per intake year, so we need the year they matriculated in. NUS's
@@ -47,6 +49,7 @@ export function OnboardingForm() {
   const [isOlympiad, setIsOlympiad] = useState(false);
   const [olympiadCategory, setOlympiadCategory] = useState("");
   const [tookH3, setTookH3] = useState(false);
+  const [mathBackground, setMathBackground] = useState<MathBackground | "">("");
   // S/U budget is worked out from the rest of the form; these cover what the form can't know, plus an override.
   const [priorUniversity, setPriorUniversity] = useState<PriorUniversity>("none");
   const [takesApcOption, setTakesApcOption] = useState(false);
@@ -167,6 +170,7 @@ export function OnboardingForm() {
           priorDiploma: hasDiploma ? `${diploma}, ${polytechnic}` : "",
           suBudgetTotalMc,
           matriculationYear,
+          mathBackground: mathBackground || undefined,
           exemptions,
         }),
       });
@@ -383,6 +387,8 @@ export function OnboardingForm() {
       </label>
 
       {tookH3 && <H3Guidance />}
+
+      <MathBackgroundField value={mathBackground} onChange={setMathBackground} polytechnic={hasDiploma ? polytechnic : ""} />
 
       <SuBudgetCard
         budget={suBudget}

@@ -33,6 +33,10 @@ model User {
   // created before this was collected.
   matriculationYear Int?
 
+  // How the student meets NUS's "good H2 pass in Mathematics (or equivalent)" condition: H2 | IB_HL | POLY_CERT |
+  // PASSED_TEST | NONE (see src/lib/qualifications.ts). Null = never asked, treated as not covered.
+  mathBackground String?
+
   // Short-lived token for the Telegram account-linking deep link - cleared
   // once used or expired. Not a session/auth credential, just a one-time
   // "which app account does this /start come from" lookup.
