@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
+import { MATH_BRIDGING_CODES, assumedModulesFor } from "@/lib/qualifications";
 import { getModuleInfo, flattenPrereqTree, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import {
   buildAutoPlan,
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   const structure = getDegreeStructureForProgramme(user?.programme);
+
+  const assumed = new Set(assumedModulesFor(user?.mathBackground));
 
   const existingCodes = new Set(
     body.entries.map((e) => e.moduleCode?.toUpperCase()).filter((c): c is string => !!c)
@@ -62,7 +65,9 @@ export async function POST(request: NextRequest) {
         label: found.title,
         mc: Number(found.moduleCredit) || 4,
         bucketId: bucket.id,
-        prereqCodes: flattenPrereqTree(found.prereqTree),
+        // A student whose maths background NUS treats as H2-equivalent doesn't need the bridging module,
+        // so it isn't a prerequisite for them (and shouldn't raise an "assumed you'll have it" warning).
+        prereqCodes: flattenPrereqTree(found.prereqTree).filter((c) => !assumed.has(c.toUpperCase())),
       });
     }
   }
@@ -73,6 +78,19 @@ export async function POST(request: NextRequest) {
     candidateModules,
     targetTotalSemesters: body.targetTotalSemesters,
   });
+
+  // No H2-equivalent maths: the bridging module really is a prerequisite, but it isn't in the degree's list, so the
+  // draft can't place it. Say so rather than silently "assuming you'll have it".
+  if (user?.mathBackground === "NONE") {
+    const needing = candidateModules.filter((m) => m.prereqCodes.some((c) => MATH_BRIDGING_CODES.includes(c.toUpperCase())));
+    if (needing.length > 0) {
+      result.warnings.unshift(
+        `You said you have no H2-equivalent maths, so add MA1301 (or MA1301X) in your first semester: ${needing
+          .map((m) => m.moduleCode)
+          .join(", ")} need it first.`
+      );
+    }
+  }
 
   return NextResponse.json(result);
 }
