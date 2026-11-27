@@ -8,6 +8,8 @@ const onboardingSchema = z.object({
   programme: z.string().trim().min(1).max(100),
   priorDiploma: z.string().trim().max(150).optional().or(z.literal("")),
   suBudgetTotalMc: z.coerce.number().int().min(0).max(60).multipleOf(2),
+  // Start year of the intake AY (2026 for AY2026/27); selects which year's exemption lists apply.
+  matriculationYear: z.coerce.number().int().min(2015).max(2040).optional(),
   // Module codes the user already has an approved credit transfer / exemption
   // for, e.g. ["CS2101", "IS1108"]. Free-typed, so normalize loosely.
   exemptions: z.array(z.string().trim().toUpperCase().min(1)).max(30),
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { programme, priorDiploma, suBudgetTotalMc, exemptions } =
+  const { programme, priorDiploma, suBudgetTotalMc, matriculationYear, exemptions } =
     parsed.data;
 
   try {
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
           programme,
           priorDiploma: priorDiploma || null,
           suBudgetTotalMc,
+          ...(matriculationYear !== undefined ? { matriculationYear } : {}),
         },
       });
 

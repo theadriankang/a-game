@@ -12,7 +12,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "exemptions:build": "tsx scripts/exemptions/build.ts",
+    "exemptions:load": "tsx --env-file-if-exists=.env scripts/exemptions/load.ts",
+    "modules:sync": "tsx --env-file-if-exists=.env scripts/modules/sync.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
@@ -30,11 +33,14 @@
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
     "autoprefixer": "^10.7.0",
+    "cheerio": "^1.2.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.29",
     "postcss": "^8.5.33",
     "prisma": "^5.20.0",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5.5.0"
+    "tsx": "^4.23.15",
+    "typescript": "^5.5.0",
+    "unpdf": "^2.2.3"
   }
 }

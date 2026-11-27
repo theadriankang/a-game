@@ -27,6 +27,12 @@ model User {
   suBudgetTotalMc Int      @default(32)
   suBudgetUsedMc  Int      @default(0)
 
+  // Start year of the academic year the user matriculated in (2023 for
+  // AY2023/24). Drives which year's exemption rules apply to them, since
+  // each faculty republishes its APC lists per intake. Null for accounts
+  // created before this was collected.
+  matriculationYear Int?
+
   // Short-lived token for the Telegram account-linking deep link - cleared
   // once used or expired. Not a session/auth credential, just a one-time
   // "which app account does this /start come from" lookup.
@@ -185,4 +191,56 @@ model SavedTimetable {
 
   @@unique([userId, academicYear, semester])
   @@map("saved_timetables")
+}
+
+// --- exemptions / advanced placement credits (shared reference data) ---
+//
+// Loaded offline by scripts/exemptions (never scraped at request time) from
+// each faculty's published APC lists, one row per module granted. The app
+// only reads these to pre-fill onboarding suggestions - see
+// src/lib/exemptions and docs/exemptions-pipeline.md.
+
+enum ExemptionQualification {
+  POLYTECHNIC
+  H3
+  OLYMPIAD
+}
+
+// One row per diploma / medal category per intake year per programme group;
+// `grants` is the list of credits it earns:
+//   { moduleCode: string|null, label, mc, kind: "PROGRAMME"|"UNRESTRICTED_ELECTIVE",
+//     grant: "AUTOMATIC"|"OPT_IN", note: string|null }
+// moduleCode is null for generic credit with no module code (e.g. "20 units of UEs").
+model ExemptionRule {
+  id            String                 @id @default(cuid())
+  academicYear  String                 // intake AY the rule was published for, e.g. "2026-27"
+  faculty       String                 // matches nus-programmes.ts faculty names
+  programmes    String[]               // app programme names it applies to; empty = every programme in the faculty
+  qualification ExemptionQualification
+  institution   String?                // e.g. "Nanyang Polytechnic"; null when not institution-specific
+  credential    String                 // diploma / medal category as published; "*" = any holder
+  credentialKey String                 // normalised credential, for matching ("*" = any)
+  grants        Json
+  sourceUrl     String
+  snapshotAt    DateTime?              // capture time of the page/PDF the rule came from
+
+  @@index([academicYear, qualification, credentialKey])
+  @@map("exemption_rules")
+}
+
+// --- module catalog (shared reference data) ---
+//
+// Every module code NUSMods has listed in the last few academic years, so
+// autocomplete and validation don't depend on a live NUSMods call and can
+// recognise modules that have since been retired or renamed (exemptions often
+// name those). Filled by scripts/modules/sync.ts.
+model CatalogModule {
+  code          String   @id // "CS1010A"
+  title         String       // as of the newest AY that lists it
+  mc            Float?       // null when only known from the condensed list
+  academicYears String[]     // NUSMods AYs that list it, e.g. ["2025-2026", "2026-2027"]
+  lastListedAy  String?      // newest of academicYears; null for codes only known from exemption lists. Ranks current modules first.
+  updatedAt     DateTime @updatedAt
+
+  @@map("catalog_modules")
 }

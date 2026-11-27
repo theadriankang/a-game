@@ -1,14 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { nusFaculties } from "@/lib/education-data/nus-programmes";
 import { polytechnics } from "@/lib/education-data/polytechnic-diplomas";
+import { H3Guidance, SuggestionList, useSuggestions, type SuggestedModule } from "./exemption-suggestions";
+import { ModuleCodeInput, type ChosenModule } from "./module-code-input";
+import { SuBudgetCard } from "./su-budget-card";
+import { computeSuBudget, totalApcUnits, type PriorUniversity } from "@/lib/su-budget";
 
-// Modules are credited in multiples of 4 MC, so a free-typed number field
-// just invited typos (and had its own "0" display bug) for no benefit over
-// a short list of the values that are actually valid.
-const SU_BUDGET_OPTIONS = Array.from({ length: 31 }, (_, i) => i * 2); // 0, 2, ..., 60
+// Exemption lists are published per intake year, so we need the year they matriculated in. NUS's
+// academic year starts in August; offer the current intake and the three before it (Y1-Y4).
+function currentIntakeYear(now = new Date()): number {
+  return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+function suggestedChip(m: SuggestedModule): ChosenModule {
+  return {
+    code: m.moduleCode,
+    title: m.label.replace(m.moduleCode, "").trim() || null,
+    verified: true,
+    source: "suggested",
+    mc: m.mc,
+    kind: m.kind,
+  };
+}
 
 const DEFAULT_FACULTY = "School of Computing";
 const DEFAULT_PROGRAMME = "Bachelor of Computing in Computer Science";
@@ -22,8 +38,23 @@ export function OnboardingForm() {
   const [polytechnic, setPolytechnic] = useState(polytechnics[0].name);
   const [diploma, setDiploma] = useState(polytechnics[0].schools[0].diplomas[0]);
 
-  const [suBudgetTotalMc, setSuBudgetTotalMc] = useState(32);
-  const [exemptionsText, setExemptionsText] = useState("");
+  const intakeYears = useMemo(() => {
+    const y = currentIntakeYear();
+    return [y, y - 1, y - 2, y - 3];
+  }, []);
+  const [matriculationYear, setMatriculationYear] = useState(() => currentIntakeYear());
+
+  const [isOlympiad, setIsOlympiad] = useState(false);
+  const [olympiadCategory, setOlympiadCategory] = useState("");
+  const [tookH3, setTookH3] = useState(false);
+  // S/U budget is worked out from the rest of the form; these cover what the form can't know, plus an override.
+  const [priorUniversity, setPriorUniversity] = useState<PriorUniversity>("none");
+  const [takesApcOption, setTakesApcOption] = useState(false);
+  const [suOverride, setSuOverride] = useState<number | null>(null);
+  // The one list of confirmed exemptions: suggestions the student has ticked plus anything they add by hand.
+  const [confirmed, setConfirmed] = useState<ChosenModule[]>([]);
+  // Suggested modules the student has taken out, so a refreshed suggestion doesn't put them back.
+  const dismissed = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +67,78 @@ export function OnboardingForm() {
     () => polytechnics.find((p) => p.name === polytechnic)?.schools ?? [],
     [polytechnic]
   );
+
+  const polySuggestions = useSuggestions(
+    hasDiploma
+      ? { matriculationYear, faculty, programme, qualification: "POLYTECHNIC", institution: polytechnic, credential: diploma }
+      : null
+  );
+  // Medal categories come from the same API; the first call (no category yet) just lists them.
+  const olympiadOptions = useSuggestions(
+    isOlympiad ? { matriculationYear, faculty, programme, qualification: "OLYMPIAD" } : null
+  );
+  const olympiadSuggestions = useSuggestions(
+    isOlympiad && olympiadCategory
+      ? { matriculationYear, faculty, programme, qualification: "OLYMPIAD", credential: olympiadCategory }
+      : null
+  );
+  const categories = useMemo(() => olympiadOptions.data?.options ?? [], [olympiadOptions.data]);
+  useEffect(() => {
+    if (isOlympiad && !categories.includes(olympiadCategory)) setOlympiadCategory("");
+  }, [isOlympiad, categories, olympiadCategory]);
+
+  // When suggestions change: automatic ones join the confirmed list (unless the student removed them) and
+  // suggested ones that no longer apply (e.g. a different diploma) leave it. Optional ones wait to be ticked,
+  // and anything the student added by hand is never touched.
+  useEffect(() => {
+    const current = [...(polySuggestions.data?.modules ?? []), ...(olympiadSuggestions.data?.modules ?? [])];
+    const currentCodes = new Set(current.map((m) => m.moduleCode));
+    setConfirmed((prev) => {
+      const next = prev.filter((c) => c.source !== "suggested" || currentCodes.has(c.code));
+      for (const m of current) {
+        if (m.grant !== "AUTOMATIC" || dismissed.current.has(m.moduleCode)) continue;
+        if (next.some((c) => c.code === m.moduleCode)) continue;
+        next.push(suggestedChip(m));
+      }
+      return next;
+    });
+  }, [polySuggestions.data, olympiadSuggestions.data]);
+
+  const picked = useMemo(() => Object.fromEntries(confirmed.map((c) => [c.code, true])), [confirmed]);
+
+  // Total APCs drive the S/U scheme (20 or more changes it). A polytechnic diploma always carries the automatic 20
+  // elective units, even where we hold no exemption list for their faculty.
+  const { apcUnits, ueApcUnits } = totalApcUnits({
+    polytechnicDiploma: hasDiploma,
+    genericUeUnits: (polySuggestions.data?.generic ?? []).reduce((n, g) => n + g.mc, 0),
+    modules: confirmed,
+  });
+  const suBudget = computeSuBudget({
+    faculty,
+    programme,
+    matriculationYear,
+    apcUnits,
+    ueApcUnits,
+    priorUniversity,
+    takesApcOption,
+  });
+  const suBudgetTotalMc = suOverride ?? suBudget.total;
+
+  /** Change the list, remembering which suggested modules the student took out. */
+  function changeConfirmed(next: ChosenModule[]) {
+    const kept = new Set(next.map((c) => c.code));
+    for (const c of confirmed) if (c.source === "suggested" && !kept.has(c.code)) dismissed.current.add(c.code);
+    setConfirmed(next);
+  }
+
+  function toggleSuggestion(m: SuggestedModule, on: boolean) {
+    if (on) {
+      dismissed.current.delete(m.moduleCode);
+      if (!confirmed.some((c) => c.code === m.moduleCode)) setConfirmed([...confirmed, suggestedChip(m)]);
+    } else {
+      changeConfirmed(confirmed.filter((c) => c.code !== m.moduleCode));
+    }
+  }
 
   function handleFacultyChange(name: string) {
     setFaculty(name);
@@ -54,10 +157,7 @@ export function OnboardingForm() {
     setError(null);
     setLoading(true);
 
-    const exemptions = exemptionsText
-      .split(",")
-      .map((code) => code.trim())
-      .filter(Boolean);
+    const exemptions = Array.from(new Set(confirmed.map((c) => c.code)));
 
     try {
       const res = await fetch("/api/onboarding", {
@@ -67,6 +167,7 @@ export function OnboardingForm() {
           programme: `${programme} (${faculty})`,
           priorDiploma: hasDiploma ? `${diploma}, ${polytechnic}` : "",
           suBudgetTotalMc,
+          matriculationYear,
           exemptions,
         }),
       });
@@ -116,6 +217,24 @@ export function OnboardingForm() {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-medium text-text1">Year you started at NUS</span>
+        <select
+          value={matriculationYear}
+          onChange={(e) => setMatriculationYear(Number(e.target.value))}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
+        >
+          {intakeYears.map((y) => (
+            <option key={y} value={y}>
+              AY{y}/{String((y + 1) % 100).padStart(2, "0")}
+            </option>
+          ))}
+        </select>
+        <span className="text-[12px] text-text3">
+          Faculties publish exemption lists per intake year, so we use this to find yours.
+        </span>
       </label>
 
       <label className="flex items-center gap-2">
@@ -172,39 +291,110 @@ export function OnboardingForm() {
         </div>
       )}
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-text1">
-          S/U budget (MC)
-        </span>
-        <select
-          value={suBudgetTotalMc}
-          onChange={(e) => setSuBudgetTotalMc(Number(e.target.value))}
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
-        >
-          {SU_BUDGET_OPTIONS.map((mc) => (
-            <option key={mc} value={mc}>
-              {mc} MC
-            </option>
-          ))}
-        </select>
+      {hasDiploma && (
+        <SuggestionList
+          title="Suggested exemptions for your diploma"
+          data={polySuggestions.data}
+          loading={polySuggestions.loading}
+          error={polySuggestions.error}
+          picked={picked}
+          onToggle={toggleSuggestion}
+          emptyHint="You can still add exemptions from your Transfer Credit Report below."
+        />
+      )}
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={isOlympiad}
+          onChange={(e) => setIsOlympiad(e.target.checked)}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span className="text-[13px] font-medium text-text1">I&apos;m an olympiad medallist</span>
       </label>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-text1">
-          Confirmed exemptions (optional)
-        </span>
+      {isOlympiad && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-page p-3">
+          {olympiadOptions.loading ? (
+            <p className="text-[12px] text-text3">Looking up medal categories…</p>
+          ) : categories.length === 0 ? (
+            <p className="text-[12px] text-text3">
+              We don&apos;t hold a published olympiad exemption list for your faculty and intake year yet. Add anything
+              you&apos;ve been credited with below.
+            </p>
+          ) : (
+            // Categories are published as full sentences (one names eight countries), which a native
+            // <select> can't wrap or show in full, so they're a radio list whose labels wrap.
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-[13px] font-medium text-text1">Medal category</legend>
+              {categories.map((c) => (
+                <label key={c} className="flex items-start gap-2">
+                  <input
+                    type="radio"
+                    name="olympiad-category"
+                    value={c}
+                    checked={olympiadCategory === c}
+                    onChange={() => setOlympiadCategory(c)}
+                    className="mt-0.5 h-4 w-4 border-border"
+                  />
+                  <span className="text-[13px] leading-snug text-text1">{c}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {olympiadCategory && (
+            <SuggestionList
+              title="Olympiad exemptions"
+              data={olympiadSuggestions.data}
+              loading={olympiadSuggestions.loading}
+              error={olympiadSuggestions.error}
+              picked={picked}
+              onToggle={toggleSuggestion}
+              emptyHint=""
+            />
+          )}
+        </div>
+      )}
+
+      <label className="flex items-center gap-2">
         <input
-          value={exemptionsText}
-          onChange={(e) => setExemptionsText(e.target.value)}
-          placeholder="e.g. CS2101, IS1108"
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text0 outline-none focus-visible:border-accent"
+          type="checkbox"
+          checked={tookH3}
+          onChange={(e) => setTookH3(e.target.checked)}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span className="text-[13px] font-medium text-text1">I took a H3 subject in JC</span>
+      </label>
+
+      {tookH3 && <H3Guidance />}
+
+      <SuBudgetCard
+        budget={suBudget}
+        apcUnits={apcUnits}
+        override={suOverride}
+        onOverride={setSuOverride}
+        priorUniversity={priorUniversity}
+        onPriorUniversity={setPriorUniversity}
+        takesApcOption={takesApcOption}
+        onTakesApcOption={setTakesApcOption}
+        polytechnic={hasDiploma}
+      />
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="confirmed-modules" className="text-[13px] font-medium text-text1">
+          Confirmed exemptions{confirmed.length > 0 ? ` (${confirmed.length})` : " (optional)"}
+        </label>
+        <ModuleCodeInput
+          id="confirmed-modules"
+          value={confirmed}
+          onChange={changeConfirmed}
+          placeholder={confirmed.length > 0 ? "Add another module, e.g. MA1301" : "e.g. MA1301 or CS1010"}
         />
         <span className="text-[12px] text-text3">
-          Comma-separated module codes from your Transfer Credit Report.
-          Leave blank if you don&apos;t have any yet — you can add these
-          later.
+          Everything you tick above is listed here. Add any others from your Transfer Credit Report by module code, or
+          paste a whole list. Leave blank if you don&apos;t have any yet — you can add these later.
         </span>
-      </label>
+      </div>
 
       {error && <p className="text-[13px] text-red">{error}</p>}
 

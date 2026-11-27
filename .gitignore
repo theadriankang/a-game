@@ -37,3 +37,8 @@ prisma/dev.db*
 .vscode/
 .idea/
 .env*
+
+# exemption pipeline: raw copies of NUS pages/PDFs stay local (re-fetchable); the manifest and parsed rules are committed
+data/exemptions/raw/*
+!data/exemptions/raw/manifest.json
+data/exemptions/manual/
