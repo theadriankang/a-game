@@ -603,7 +603,10 @@ function SandboxAddForm({
 }) {
   const [moduleCode, setModuleCode] = useState("");
   const [label, setLabel] = useState("");
-  const [mc, setMc] = useState(4);
+  // Units come from the module database, never from the person: null until
+  // the picked module has been looked up.
+  const [mc, setMc] = useState<number | null>(null);
+  const [mcFailed, setMcFailed] = useState(false);
   const [status, setStatus] = useState<Status>("PLANNED");
 
   return (
@@ -613,25 +616,25 @@ function SandboxAddForm({
         onSelect={async (r) => {
           setModuleCode(r.moduleCode);
           setLabel(r.title);
+          setMc(null);
+          setMcFailed(false);
           try {
             const res = await fetch(`/api/modules/${r.moduleCode}`);
-            if (res.ok) {
-              const info = await res.json();
-              setMc(info.mc ?? 4);
-            }
+            if (!res.ok) throw new Error("lookup failed");
+            const info = await res.json();
+            setMc(info.mc);
           } catch {
-            // Keep the default MC guess if the lookup fails - this is a
-            // sandbox, not worth blocking on.
+            setMcFailed(true);
           }
         }}
       />
       <div className="mt-1.5 flex items-center gap-1.5">
-        <input
-          type="number"
-          value={mc}
-          onChange={(e) => setMc(Number(e.target.value))}
-          className="w-14 rounded-lg border border-border bg-surface px-1.5 py-1 text-[12px] text-text1 outline-none focus:border-accent"
-        />
+        <div
+          aria-label="Module credits"
+          className="flex min-w-14 items-center justify-center whitespace-nowrap rounded-lg border border-border bg-seg-bg px-1.5 py-1 text-[12px] font-medium text-text2"
+        >
+          {mc === null ? "– MC" : `${mc} MC`}
+        </div>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as Status)}
@@ -642,10 +645,16 @@ function SandboxAddForm({
           <option value="RESERVED">Reserved</option>
         </select>
       </div>
+      {mcFailed ? (
+        <div className="mt-1.5 px-0.5 text-[11px] leading-snug text-red">
+          Couldn&apos;t load this module&apos;s units. Try selecting it again.
+        </div>
+      ) : null}
       <div className="mt-1.5 flex gap-1.5">
         <button
-          disabled={!moduleCode.trim()}
+          disabled={!moduleCode.trim() || mc === null}
           onClick={() =>
+            mc !== null &&
             onAdd({
               id: makeLocalId(),
               moduleCode: moduleCode.trim().toUpperCase(),

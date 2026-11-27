@@ -6,6 +6,7 @@ import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { checkPlan } from "@/lib/prereq-check";
+import { firstYearWindowYears, isSuEligible } from "@/lib/su-budget";
 import { hasPendingRequest } from "@/lib/module-analysis";
 import { PlannerBoard } from "./planner-board";
 
@@ -66,7 +67,11 @@ export default async function PlannerPage() {
     moduleInfoEntries
   );
 
-  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode);
+  const violationsByEntryId = checkPlan(semesterEntries, moduleInfoByCode, { mathBackground: user.mathBackground });
+
+  // Modules NUS allows the S/U option on. The planner only offers the S/U button for these (a module whose
+  // NUSMods data couldn't be fetched is left out, so it never offers S/U on a guess).
+  const suEligibleCodes = distinctCodes.filter((code) => isSuEligible(moduleInfoByCode[code]));
 
   // Community-signal reports: pull whatever's already cached for the
   // modules in this plan, plus which ones (if any) are still queued, so
@@ -86,7 +91,8 @@ export default async function PlannerPage() {
     <PlannerBoard
       userName={user.name}
       suBudgetTotalMc={user.suBudgetTotalMc}
-      suBudgetUsedMc={user.suBudgetUsedMc}
+      suWindowYears={firstYearWindowYears(user.matriculationYear)}
+      suEligibleCodes={suEligibleCodes}
       semesterEntries={semesterEntries}
       exemptionEntries={exemptionEntries}
       exemptionYear={EXEMPTION_YEAR}

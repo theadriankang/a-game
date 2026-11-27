@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { dbErrorResponse } from "@/lib/api-error";
+import { MATH_BACKGROUND_VALUES } from "@/lib/qualifications";
 
 const onboardingSchema = z.object({
   programme: z.string().trim().min(1).max(100),
@@ -10,6 +11,8 @@ const onboardingSchema = z.object({
   suBudgetTotalMc: z.coerce.number().int().min(0).max(60).multipleOf(2),
   // Start year of the intake AY (2026 for AY2026/27); selects which year's exemption lists apply.
   matriculationYear: z.coerce.number().int().min(2015).max(2040).optional(),
+  // How they meet NUS's H2 Math condition (optional; see src/lib/qualifications.ts).
+  mathBackground: z.enum(MATH_BACKGROUND_VALUES).optional(),
   // Module codes the user already has an approved credit transfer / exemption
   // for, e.g. ["CS2101", "IS1108"]. Free-typed, so normalize loosely.
   exemptions: z.array(z.string().trim().toUpperCase().min(1)).max(30),
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { programme, priorDiploma, suBudgetTotalMc, matriculationYear, exemptions } =
+  const { programme, priorDiploma, suBudgetTotalMc, matriculationYear, mathBackground, exemptions } =
     parsed.data;
 
   try {
@@ -48,6 +51,7 @@ export async function POST(request: Request) {
           priorDiploma: priorDiploma || null,
           suBudgetTotalMc,
           ...(matriculationYear !== undefined ? { matriculationYear } : {}),
+          ...(mathBackground !== undefined ? { mathBackground } : {}),
         },
       });
 

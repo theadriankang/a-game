@@ -71,6 +71,9 @@ export type ModuleInfo = {
   prereqTree?: PrereqTree;
   preclusion?: string;
   corequisite?: string;
+  // Registrar-set flags per module. `su: true` means NUS allows the
+  // S/U option on it; the key is simply absent otherwise (see su-budget.ts).
+  attributes?: { su?: boolean; [flag: string]: boolean | undefined };
   semesterData?: SemesterData[];
 };
 

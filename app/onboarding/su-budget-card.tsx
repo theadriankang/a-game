@@ -32,7 +32,7 @@ function reason(b: SuBudget, polytechnic: boolean): string {
 
 /**
  * The S/U budget, worked out from the programme, intake year and exemptions already on the form, with the
- * reasoning shown. "Adjust" covers the cases the form can't know (prior university study, the APC option)
+ * reasoning shown. "Adjust" (next to the total) covers the cases the form can't know (prior university study, the APC option)
  * and a manual override for anything NUS has told the student differently.
  */
 export function SuBudgetCard({
@@ -65,15 +65,19 @@ export function SuBudgetCard({
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[13px] font-medium text-text1">S/U budget</span>
         <span className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10.5px] font-semibold ${
-              override === null
-                ? "border-green-border bg-green-bg text-green"
-                : "border-amber-border bg-amber-bg text-amber"
-            }`}
+          {override !== null && (
+            <span className="inline-flex items-center rounded-full border border-amber-border bg-amber-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-amber">
+              set by you
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setAdjusting((v) => !v)}
+            aria-expanded={adjusting}
+            className="text-[12px] font-medium text-accent underline"
           >
-            {override === null ? "automatic" : "set by you"}
-          </span>
+            {adjusting ? "Done" : "Adjust"}
+          </button>
           <span className="text-[13px] font-semibold text-text0">{total} MC</span>
         </span>
       </div>
@@ -89,15 +93,6 @@ export function SuBudgetCard({
           otherwise. You choose which modules after results are released, and it can&apos;t be undone.
         </p>
       )}
-
-      <button
-        type="button"
-        onClick={() => setAdjusting((v) => !v)}
-        aria-expanded={adjusting}
-        className="self-start text-[12px] font-medium text-accent underline"
-      >
-        {adjusting ? "Done" : "Adjust"}
-      </button>
 
       {adjusting && (
         <div className="flex flex-col gap-3 border-t border-border pt-3">

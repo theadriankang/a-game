@@ -10,6 +10,7 @@ import {
 } from "@/lib/nusmods";
 import { getCachedAnalysis, hasPendingRequest } from "@/lib/module-analysis";
 import { ModuleDetailView } from "./module-detail-view";
+import { MATH_BRIDGING_CODES, coversMath } from "@/lib/qualifications";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -51,6 +52,18 @@ export default async function ModulePage({ params }: RouteParams) {
   ]);
 
   const prereqCodes = flattenPrereqTree(info.prereqTree);
+
+  // NUSMods' tree keeps only the MA1301 branch of "H2 Math OR MA1301"; tell the student where they stand.
+  const mathBackground = (await prisma.user.findUnique({ where: { id: userId }, select: { mathBackground: true } }))
+    ?.mathBackground;
+  const needsBridging = prereqCodes.some((c) => MATH_BRIDGING_CODES.includes(c.toUpperCase()));
+  const prereqNote = !needsBridging
+    ? null
+    : coversMath(mathBackground)
+      ? "Your maths background counts as H2 Math (or equivalent), so you don't need MA1301 first."
+      : mathBackground === "NONE"
+        ? "You said you have no H2-equivalent maths, so you'll need MA1301 (or MA1301X) first."
+        : null;
 
   // The prereq-path diagram is scoped to the signed-in user's own plan -
   // same reasoning as the planner grid's hover connector lines: showing
@@ -104,6 +117,7 @@ export default async function ModulePage({ params }: RouteParams) {
       inPlanPrereqCodes={inPlanPrereqCodes}
       unlocks={unlocks}
       prereqSummary={formatPrereqTree(info.prereqTree)}
+      prereqNote={prereqNote}
       preclusion={info.preclusion ?? null}
       corequisite={info.corequisite ?? null}
       analysis={

@@ -3,6 +3,8 @@
 //  - Faculty APC pages (Science, FASS, CDE) -> the "APC option exercise"
 // Only the total is stored on the user; the split below is for explaining it.
 
+import type { ModuleInfo } from "./nusmods";
+
 export type PriorUniversity = "none" | "credits" | "degree";
 
 export type SuInputs = {
@@ -126,5 +128,87 @@ export function computeSuBudget(i: SuInputs): SuBudget {
     firstYearWindow,
     apcOptionEligible,
     apcOptionApplied,
+  };
+}
+
+// --- using the budget on specific modules ---
+
+/**
+ * Whether NUS lets a module be S/U'd. NUSMods publishes the Registrar's per-module flag as `attributes.su`
+ * (set on Level 1000 modules, Level 2000 modules with no NUS-module prerequisites, and a few language modules),
+ * so we read it rather than guessing from the module level. Unknown or unfetched modules count as not eligible.
+ */
+export function isSuEligible(info: Pick<ModuleInfo, "attributes"> | null | undefined): boolean {
+  return info?.attributes?.su === true;
+}
+
+/** Of a total, up to 12 MC can be used at any time; whatever is left over is first-year units. */
+export const ANYTIME_UNITS = 12;
+
+/**
+ * How many planner years count as the first-year window: the first two years from the AY2025/26 intake, the
+ * first year before that. Accounts with no matriculation year yet get the current rule rather than being blocked.
+ */
+export function firstYearWindowYears(matriculationYear: number | null | undefined): 1 | 2 {
+  return matriculationYear != null && matriculationYear < 2025 ? 1 : 2;
+}
+
+export type SuEntry = { academicYear: number; mc: number };
+
+export type SuUsage = {
+  /** All MC marked S/U. */
+  usedMc: number;
+  /** Of those, the MC in years after the first-year window (can only come out of the any-time units). */
+  laterMc: number;
+};
+
+export function suUsage(entries: SuEntry[], windowYears: number): SuUsage {
+  let usedMc = 0;
+  let laterMc = 0;
+  for (const e of entries) {
+    usedMc += e.mc;
+    if (e.academicYear > windowYears) laterMc += e.mc;
+  }
+  return { usedMc, laterMc };
+}
+
+/**
+ * Whether S/U'd modules fit in the budget. First-year units only cover modules in the window, while any-time
+ * units cover everything, so a set fits when it is within the total AND what falls after the window is within
+ * the any-time units. Only the total is stored, and every scheme's any-time allowance is min(12, total).
+ */
+export function suFits(usage: SuUsage, totalMc: number): boolean {
+  return usage.usedMc <= totalMc && usage.laterMc <= Math.min(ANYTIME_UNITS, totalMc);
+}
+
+/**
+ * Can `candidate` be added to the modules already S/U'd? When it can't, the reason says what the user can act on:
+ * how much budget is left, or that what's left is first-year units and the candidate is too late for them.
+ */
+export function canUseSu(
+  existing: SuEntry[],
+  candidate: SuEntry,
+  totalMc: number,
+  windowYears: number,
+): { ok: true } | { ok: false; reason: string } {
+  const before = suUsage(existing, windowYears);
+  const after = suUsage([...existing, candidate], windowYears);
+  if (suFits(after, totalMc)) return { ok: true };
+
+  if (after.usedMc > totalMc) {
+    const left = Math.max(0, totalMc - before.usedMc);
+    return {
+      ok: false,
+      reason:
+        left === 0
+          ? `You've used all ${totalMc} MC of your S/U budget.`
+          : `Only ${left} MC of S/U budget left, and this module is ${candidate.mc} MC.`,
+    };
+  }
+  const laterLeft = Math.max(0, Math.min(ANYTIME_UNITS, totalMc) - before.laterMc);
+  const window = windowYears === 1 ? "year 1" : `years 1-${windowYears}`;
+  return {
+    ok: false,
+    reason: `Your first-year S/U units only cover ${window}; after that just ${laterLeft} MC of S/U is left.`,
   };
 }
