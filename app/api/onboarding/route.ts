@@ -56,12 +56,14 @@ export async function POST(request: Request) {
       });
 
       // Re-running onboarding shouldn't duplicate exemption rows: clear the
-      // placeholder slot and re-create from the submitted list.
+      // placeholder slot and re-create from the submitted list. The Reserved
+      // bin is stored in the same slot, so leave anything in it alone.
       await tx.plannerEntry.deleteMany({
         where: {
           userId,
           academicYear: EXEMPTION_YEAR,
           semester: EXEMPTION_SEMESTER,
+          status: { not: "RESERVED" },
         },
       });
 

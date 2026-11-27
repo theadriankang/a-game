@@ -6,6 +6,7 @@ import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { checkPlan } from "@/lib/prereq-check";
+import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { firstYearWindowYears, isSuEligible } from "@/lib/su-budget";
 import { hasPendingRequest } from "@/lib/module-analysis";
 import { PlannerBoard } from "./planner-board";
@@ -31,15 +32,24 @@ export default async function PlannerPage() {
     redirect("/onboarding");
   }
 
-  const entries = await prisma.plannerEntry.findMany({
+  const storedEntries = await prisma.plannerEntry.findMany({
     where: { userId },
     orderBy: [{ academicYear: "asc" }, { semester: "asc" }, { createdAt: "asc" }],
   });
 
-  const semesterEntries = entries.filter(
+  // Done / in progress / planned isn't stored: it follows from which semester a module sits in and today's date
+  // (see src/lib/plan-status.ts). Only the Reserved bin is a real, stored state.
+  const term = currentTerm(user.matriculationYear);
+  const entries = withDerivedStatus(storedEntries, term);
+
+  // The Reserved bin has no semester, so it's told apart by status; the 0/0 slot it's stored in is shared with
+  // exemptions.
+  const reservedEntries = entries.filter((e) => e.status === "RESERVED");
+  const placedEntries = entries.filter((e) => e.status !== "RESERVED");
+  const semesterEntries = placedEntries.filter(
     (e) => !(e.academicYear === EXEMPTION_YEAR && e.semester === EXEMPTION_SEMESTER)
   );
-  const exemptionEntries = entries.filter(
+  const exemptionEntries = placedEntries.filter(
     (e) => e.academicYear === EXEMPTION_YEAR && e.semester === EXEMPTION_SEMESTER
   );
 
@@ -93,7 +103,9 @@ export default async function PlannerPage() {
       suBudgetTotalMc={user.suBudgetTotalMc}
       suWindowYears={firstYearWindowYears(user.matriculationYear)}
       suEligibleCodes={suEligibleCodes}
+      currentTerm={term}
       semesterEntries={semesterEntries}
+      reservedEntries={reservedEntries}
       exemptionEntries={exemptionEntries}
       exemptionYear={EXEMPTION_YEAR}
       exemptionSemester={EXEMPTION_SEMESTER}

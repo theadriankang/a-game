@@ -123,10 +123,22 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     const data: typeof fields = { ...fields };
-    const next = { ...existing, ...fields };
 
-    // A placeholder slot isn't a real module, so it can't be on S/U: refuse a request to put one on S/U, and
-    // quietly take an entry off S/U when it's turned into a placeholder.
+    // Moving a module in or out of the Reserved bin is what changes its status; for everything else the status
+    // follows from the semester it's in and the date (src/lib/plan-status.ts), so only the bin is ever stored.
+    if (fields.status === "RESERVED") {
+      // The bin has no semester.
+      data.academicYear = 0;
+      data.semester = 0;
+    } else if (existing.status === "RESERVED" && fields.academicYear !== undefined && fields.academicYear >= 1) {
+      // Dragged out of the bin into a semester.
+      data.status = "PLANNED";
+    }
+
+    const next = { ...existing, ...data };
+
+    // A reserved module isn't in any semester yet, so it can't be on S/U: refuse a request to put one on S/U,
+    // and quietly take an entry off S/U when it goes into the bin.
     if (next.status === "RESERVED") {
       if (fields.isSU === true) {
         return NextResponse.json(

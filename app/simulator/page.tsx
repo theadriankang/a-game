@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
+import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { SimulatorPanel } from "./simulator-panel";
 
 const EXEMPTION_YEAR = 0;
@@ -18,13 +19,18 @@ export default async function SimulatorPage() {
     redirect("/sign-in");
   }
 
-  const entries = await prisma.plannerEntry.findMany({
-    where: {
-      userId,
-      NOT: { academicYear: EXEMPTION_YEAR, semester: EXEMPTION_SEMESTER },
-    },
-    orderBy: [{ academicYear: "asc" }, { semester: "asc" }, { createdAt: "asc" }],
-  });
+  // The 0/0 slot holds exemptions and the planner's Reserved bin (modules with no semester yet); neither
+  // belongs in a semester grid.
+  const entries = withDerivedStatus(
+    await prisma.plannerEntry.findMany({
+      where: {
+        userId,
+        NOT: { academicYear: EXEMPTION_YEAR, semester: EXEMPTION_SEMESTER },
+      },
+      orderBy: [{ academicYear: "asc" }, { semester: "asc" }, { createdAt: "asc" }],
+    }),
+    currentTerm(user.matriculationYear)
+  );
 
   const initialEntries = entries.map((e) => ({
     id: e.id,

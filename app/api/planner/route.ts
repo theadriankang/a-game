@@ -18,6 +18,10 @@ export const maxDuration = 60;
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
+// Where modules in the Reserved bin are stored (the same slot exemptions use; the status tells them apart).
+const RESERVED_YEAR = 0;
+const RESERVED_SEMESTER = 0;
+
 const createEntrySchema = z.object({
   moduleCode: z
     .string()
@@ -86,8 +90,9 @@ export async function POST(request: Request) {
         moduleCode: moduleCode || null,
         label,
         mc,
-        academicYear,
-        semester,
+        // The Reserved bin has no semester: it's always stored in the 0/0 slot, whatever the request says.
+        academicYear: status === "RESERVED" ? RESERVED_YEAR : academicYear,
+        semester: status === "RESERVED" ? RESERVED_SEMESTER : semester,
         status,
         requirementTag: requirementTag || null,
       },

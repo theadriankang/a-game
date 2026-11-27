@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { ALL_MINORS, ALL_SECOND_MAJORS } from "@/lib/minors/registry";
 import { computeMinorFit } from "@/lib/minors/fit";
+import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { MinorsPanel } from "./minors-panel";
 
 export default async function MinorsPage() {
@@ -19,9 +20,10 @@ export default async function MinorsPage() {
   // Every entry counts here, including the exemption-slot placeholders -
   // an exemption/APC still represents credit the student actually holds,
   // which can count toward a minor just like any other completed module.
-  const entries = await prisma.plannerEntry.findMany({
-    where: { userId },
-  });
+  const entries = withDerivedStatus(
+    await prisma.plannerEntry.findMany({ where: { userId } }),
+    currentTerm(user.matriculationYear)
+  );
 
   const simpleEntries = entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status }));
   const minorFits = ALL_MINORS.map((minor) => computeMinorFit(simpleEntries, minor, user.programme));

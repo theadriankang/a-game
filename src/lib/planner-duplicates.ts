@@ -14,18 +14,21 @@ export async function findDuplicateEntry(userId: string, moduleCode: string, exc
       moduleCode: { equals: moduleCode, mode: "insensitive" },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
-    select: { academicYear: true, semester: true },
+    select: { academicYear: true, semester: true, status: true },
   });
 }
 
 export function duplicateMessage(
   moduleCode: string,
-  existing: { academicYear: number; semester: number }
+  existing: { academicYear: number; semester: number; status: string }
 ): string {
-  // Year 0 / semester 0 is the slot exempted modules live in, outside the semester grid.
+  // Reserved modules have no semester yet. Year 0 / semester 0 is also the slot exempted modules live in,
+  // outside the semester grid.
   const where =
-    existing.academicYear === 0 && existing.semester === 0
-      ? "your exempted modules"
-      : `your plan (Year ${existing.academicYear} · Sem ${existing.semester})`;
+    existing.status === "RESERVED"
+      ? "your Reserved modules"
+      : existing.academicYear === 0 && existing.semester === 0
+        ? "your exempted modules"
+        : `your plan (Year ${existing.academicYear} · Sem ${existing.semester})`;
   return `${moduleCode} is already in ${where}.`;
 }

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
+import { entryPhase, termPhase, type CurrentTerm, type EntryPhase } from "@/lib/plan-status";
 import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
 import { SuBudgetDialog, type SuDialogEntry } from "./su-budget-dialog";
 import { ViolationBadge } from "./violation-badge";
@@ -60,7 +61,12 @@ type Props = {
   suBudgetTotalMc: number;
   suWindowYears: number;
   suEligibleCodes: string[];
+  // Where the student is in their degree today, which decides whether each semester (and so each module in it)
+  // is done, in progress or still planned. Null when we don't know their matriculation year.
+  currentTerm: CurrentTerm | null;
   semesterEntries: Entry[];
+  // Modules the student is considering but hasn't put in a semester yet.
+  reservedEntries: Entry[];
   exemptionEntries: Entry[];
   exemptionYear: number;
   exemptionSemester: number;
@@ -73,17 +79,27 @@ type Props = {
   pendingAnalysisCodes: string[];
 };
 
-const STATUS_LABEL: Record<Entry["status"], string> = {
-  COMPLETED: "Done",
-  PLANNED: "Planned",
-  RESERVED: "Reserved",
+// A module's status isn't picked by hand: it follows from where it sits (see src/lib/plan-status.ts), so these
+// are read-only labels.
+const PHASE_LABEL: Record<EntryPhase, string> = {
+  past: "Done",
+  current: "In progress",
+  future: "Planned",
+  reserved: "Reserved",
 };
 
-const STATUS_CLASS: Record<Entry["status"], string> = {
-  COMPLETED: "bg-green-bg text-green border border-green-border",
-  PLANNED: "bg-amber-bg text-amber border border-amber-border",
-  RESERVED: "bg-seg-bg text-text2 border border-border",
+const PHASE_CLASS: Record<EntryPhase, string> = {
+  past: "bg-green-bg text-green border border-green-border",
+  current: "bg-page text-accent border border-accent",
+  future: "bg-amber-bg text-amber border border-amber-border",
+  reserved: "bg-seg-bg text-text2 border border-border",
 };
+
+const COLUMN_TAG: Partial<Record<EntryPhase, string>> = { past: "Done", current: "Now" };
+
+// Key for the Reserved bin among the grid's columns (drag-over highlight, which add form is open). Semester
+// columns use "<year>-<semester>", so this can't collide.
+const RESERVED_KEY = "reserved";
 
 // The grid always shows the standard 4 years x 2 semesters, whether or
 // not a column has any modules in it yet - so creating a "semester" isn't
@@ -117,7 +133,9 @@ export function PlannerBoard({
   suBudgetTotalMc,
   suWindowYears,
   suEligibleCodes,
+  currentTerm,
   semesterEntries,
+  reservedEntries,
   exemptionEntries,
   exemptionYear,
   exemptionSemester,
@@ -179,13 +197,15 @@ export function PlannerBoard({
     router.refresh();
   }
 
-  function changeStatus(id: string, status: Entry["status"]) {
-    return patchEntry(id, { status });
+  // Parking a module in the Reserved bin is the one status change left: everything else follows from the
+  // semester it's in. The server also takes it off S/U, since a reserved module isn't in a semester yet.
+  function reserveEntry(id: string) {
+    return patchEntry(id, { status: "RESERVED" });
   }
 
-  // Drag-and-drop between semester columns reuses the same PATCH endpoint
-  // that handles status changes - moving a module is just updating which
-  // year/semester it belongs to.
+  // Drag-and-drop between semester columns uses the same PATCH endpoint as every
+  // other edit - moving a module is just updating which year/semester it belongs
+  // to (and dragging one out of the Reserved bin is how it gets a semester).
   function moveEntry(id: string, academicYear: number, semester: number) {
     // Moving an S/U module into a later year can bust the budget (only the any-time units cover those years),
     // so ask which modules to keep rather than moving it and then refusing.
@@ -464,10 +484,9 @@ export function PlannerBoard({
               <AddEntryForm
                 academicYear={exemptionYear}
                 semester={exemptionSemester}
+                status="COMPLETED"
                 onSubmit={addEntry}
                 onCancel={() => setAddingTo(null)}
-                hideStatus
-                defaultStatus="COMPLETED"
               />
             ) : (
               <button
@@ -555,7 +574,7 @@ export function PlannerBoard({
                                   entry.moduleCode && requestAnalysis(entry.moduleCode)
                                 }
                                 onDelete={() => deleteEntry(entry.id)}
-                                onStatusChange={(status) => changeStatus(entry.id, status)}
+                                phase={entryPhase(entry, currentTerm)}
                                 su={suControlFor(entry)}
                                 onToggleSu={() => toggleSu(entry)}
                               />
@@ -576,6 +595,85 @@ export function PlannerBoard({
             entries={semesterEntries}
           />
           <div className="flex gap-4" ref={gridRowRef}>
+          <div
+            onDragOver={(e) => {
+              if (!draggingEntryId) return;
+              e.preventDefault();
+              setDragOverKey(RESERVED_KEY);
+            }}
+            onDragLeave={() => setDragOverKey((k) => (k === RESERVED_KEY ? null : k))}
+            onDrop={(e) => {
+              e.preventDefault();
+              const id = e.dataTransfer.getData("text/plain");
+              setDragOverKey(null);
+              setDraggingEntryId(null);
+              // Dropping a module that's already in the bin back on it changes nothing.
+              if (id && !reservedEntries.some((r) => r.id === id)) reserveEntry(id);
+            }}
+            className={`w-[220px] shrink-0 rounded-xl border border-dashed p-3 transition-colors ${
+              dragOverKey === RESERVED_KEY ? "border-accent bg-accent/5" : "border-border-strong bg-page"
+            }`}
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="text-[12.5px] font-semibold text-text1">Reserved</div>
+              <div className="text-[11px] font-semibold text-text3">
+                {reservedEntries.reduce((sum, e) => sum + e.mc, 0)} MC
+              </div>
+            </div>
+            <div className="mb-2 text-[11px] leading-snug text-text3">
+              Not sure where yet? Park it here, then drag it into a semester once you decide.
+            </div>
+            <div className="flex flex-col gap-2">
+              {reservedEntries.map((entry) => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  draggable
+                  isDragging={draggingEntryId === entry.id}
+                  onDragStart={(e) => {
+                    setDraggingEntryId(entry.id);
+                    e.dataTransfer.setData("text/plain", entry.id);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragEnd={() => {
+                    setDraggingEntryId(null);
+                    setDragOverKey(null);
+                  }}
+                  violations={undefined}
+                  analysis={entry.moduleCode ? analysisByCode[entry.moduleCode] : undefined}
+                  pending={entry.moduleCode ? pendingAnalysisCodes.includes(entry.moduleCode) : false}
+                  expanded={expandedCode === entry.moduleCode}
+                  onToggleExpand={() =>
+                    setExpandedCode((c) => (c === entry.moduleCode ? null : entry.moduleCode))
+                  }
+                  requesting={requestingCode === entry.moduleCode}
+                  onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
+                  onDelete={() => deleteEntry(entry.id)}
+                  phase="reserved"
+                  su={null}
+                  onToggleSu={() => {}}
+                />
+              ))}
+            </div>
+
+            {addingTo === RESERVED_KEY ? (
+              <AddEntryForm
+                academicYear={0}
+                semester={0}
+                status="RESERVED"
+                onSubmit={addEntry}
+                onCancel={() => setAddingTo(null)}
+              />
+            ) : (
+              <button
+                onClick={() => setAddingTo(RESERVED_KEY)}
+                className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] font-medium text-text2 transition-colors duration-150 hover:border-accent hover:text-accent"
+              >
+                + Add module
+              </button>
+            )}
+          </div>
+
           {semesters.map((col) => {
             const colKey = `${col.academicYear}-${col.semester}`;
             return (
@@ -606,10 +704,21 @@ export function PlannerBoard({
                 const totalMc = col.entries.reduce((sum, e) => sum + e.mc, 0);
                 const isLight = col.entries.length > 0 && totalMc < 18;
                 const isHeavy = totalMc > 23;
+                const phase = termPhase(col.academicYear, col.semester, currentTerm);
+                const columnTag = COLUMN_TAG[phase];
                 return (
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="text-[12.5px] font-semibold text-text1">
                       Year {col.academicYear} · Sem {col.semester}
+                      {columnTag ? (
+                        <span
+                          className={`ml-1.5 rounded-full px-1.5 py-px align-middle text-[9.5px] font-semibold uppercase tracking-wide ${
+                            phase === "current" ? "bg-accent text-white" : "bg-seg-bg text-text3"
+                          }`}
+                        >
+                          {columnTag}
+                        </span>
+                      ) : null}
                     </div>
                     <div
                       className={`text-[11px] font-semibold ${
@@ -658,7 +767,7 @@ export function PlannerBoard({
                     requesting={requestingCode === entry.moduleCode}
                     onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
                     onDelete={() => deleteEntry(entry.id)}
-                    onStatusChange={(status) => changeStatus(entry.id, status)}
+                    phase={entryPhase(entry, currentTerm)}
                     su={suControlFor(entry)}
                     onToggleSu={() => toggleSu(entry)}
                     onHoverStart={() => setHoveredEntryId(entry.id)}
@@ -671,6 +780,7 @@ export function PlannerBoard({
                 <AddEntryForm
                   academicYear={col.academicYear}
                   semester={col.semester}
+                  status="PLANNED"
                   onSubmit={addEntry}
                   onCancel={() => setAddingTo(null)}
                 />
@@ -858,7 +968,7 @@ function EntryCard({
   requesting,
   onRequestAnalysis,
   onDelete,
-  onStatusChange,
+  phase,
   su,
   onToggleSu,
   onHoverStart,
@@ -877,7 +987,8 @@ function EntryCard({
   requesting: boolean;
   onRequestAnalysis: () => void;
   onDelete: () => void;
-  onStatusChange: (status: Entry["status"]) => void;
+  // Done / in progress / planned / reserved, worked out from where the module sits - shown, not chosen.
+  phase: EntryPhase;
   su: SuControl | null;
   onToggleSu: () => void;
   // Only wired up from the "by semester" grid - used to drive the
@@ -946,15 +1057,11 @@ function EntryCard({
       </div>
 
       <div className="mt-1.5 flex items-center gap-1.5">
-        <select
-          value={entry.status}
-          onChange={(e) => onStatusChange(e.target.value as Entry["status"])}
-          className={`rounded-full border px-1.5 py-0.5 text-[10.5px] font-semibold outline-none transition-colors ${STATUS_CLASS[entry.status]}`}
+        <span
+          className={`rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold ${PHASE_CLASS[phase]}`}
         >
-          <option value="PLANNED">{STATUS_LABEL.PLANNED}</option>
-          <option value="COMPLETED">{STATUS_LABEL.COMPLETED}</option>
-          <option value="RESERVED">{STATUS_LABEL.RESERVED}</option>
-        </select>
+          {PHASE_LABEL[phase]}
+        </span>
         {su ? (
           <button
             type="button"
@@ -1199,13 +1306,15 @@ function ModuleCodeField({
 function AddEntryForm({
   academicYear,
   semester,
+  status,
   onSubmit,
   onCancel,
-  hideStatus,
-  defaultStatus = "PLANNED",
 }: {
   academicYear: number;
   semester: number;
+  // Not picked by the person: a module added to a semester is planned (and shows as done or in progress once
+  // that semester arrives), one added to the Reserved bin is reserved, one added as an exemption is already done.
+  status: Entry["status"];
   onSubmit: (form: {
     academicYear: number;
     semester: number;
@@ -1215,19 +1324,12 @@ function AddEntryForm({
     status: Entry["status"];
   }) => Promise<string | null>;
   onCancel: () => void;
-  // Exemption entries (modules credited outside the normal semester grid -
-  // winter/summer school, APC, advanced standing) are always already
-  // official, so there's nothing to pick: showing "Planned"/"Reserved"
-  // there would just be confusing, unused options.
-  hideStatus?: boolean;
-  defaultStatus?: Entry["status"];
 }) {
   const [moduleCode, setModuleCode] = useState("");
   const [title, setTitle] = useState("");
   // Units come from the module database, never from the person: null until
   // a module has been looked up.
   const [mc, setMc] = useState<number | null>(null);
-  const [status, setStatus] = useState<Entry["status"]>(defaultStatus);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // True while the add request is in flight, so a double click can't add the module twice.
@@ -1321,17 +1423,6 @@ function AddEntryForm({
         >
           {mc === null ? "– MC" : `${mc} MC`}
         </div>
-        {hideStatus ? null : (
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as Entry["status"])}
-            className="flex-1 rounded border border-border bg-surface px-1 py-1 text-[12.5px] outline-none"
-          >
-            <option value="PLANNED">Planned</option>
-            <option value="COMPLETED">Done</option>
-            <option value="RESERVED">Reserved</option>
-          </select>
-        )}
       </div>
       {error ? <div className="px-0.5 text-[11px] leading-snug text-red">{error}</div> : null}
       <div className="flex gap-1.5">
