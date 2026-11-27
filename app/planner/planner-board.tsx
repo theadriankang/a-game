@@ -9,6 +9,7 @@ import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
 import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
 import { SuBudgetDialog, type SuDialogEntry } from "./su-budget-dialog";
+import { ViolationBadge } from "./violation-badge";
 
 type Entry = {
   id: string;
@@ -973,14 +974,7 @@ function EntryCard({
             S/U
           </button>
         ) : null}
-        {violations?.length ? (
-          <span
-            title={violations.map((v) => v.message).join(" ")}
-            className="inline-flex cursor-help items-center rounded-full border border-red-border bg-red-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-red"
-          >
-            ⚠ Check
-          </span>
-        ) : null}
+        {violations?.length ? <ViolationBadge violations={violations} /> : null}
       </div>
 
       {entry.moduleCode ? (
