@@ -11,6 +11,7 @@ import {
   runAndCacheAnalysis,
 } from "@/lib/module-analysis";
 import { AnalysisStatus, AnalysisTrigger } from "@prisma/client";
+import { trackSilently } from "@/lib/track";
 
 type RouteContext = { params: Promise<{ code: string }> };
 
@@ -49,6 +50,8 @@ export async function POST(_request: Request, { params }: RouteContext) {
   if (!userId) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
+
+  await trackSilently(userId, "analysis_request");
 
   const { code } = await params;
   const moduleCode = code.toUpperCase();

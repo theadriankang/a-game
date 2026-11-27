@@ -9,6 +9,7 @@ import { checkPlan } from "@/lib/prereq-check";
 import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { firstYearWindowYears, isSuEligible } from "@/lib/su-budget";
 import { hasPendingRequest } from "@/lib/module-analysis";
+import { trackSilently } from "@/lib/track";
 import { PlannerBoard } from "./planner-board";
 
 // The onboarding placeholder slot for exemptions (see app/api/onboarding) —
@@ -31,6 +32,8 @@ export default async function PlannerPage() {
   if (!user.programme) {
     redirect("/onboarding");
   }
+
+  await trackSilently(userId, "planner");
 
   const storedEntries = await prisma.plannerEntry.findMany({
     where: { userId },
@@ -118,6 +121,7 @@ export default async function PlannerPage() {
       violationsByEntryId={Object.fromEntries(violationsByEntryId)}
       analysisByCode={analysisByCode}
       pendingAnalysisCodes={pendingCodes}
+      isAdmin={user.isAdmin}
     />
   );
 }

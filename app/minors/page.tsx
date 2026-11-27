@@ -5,6 +5,7 @@ import { ALL_MINORS, ALL_SECOND_MAJORS } from "@/lib/minors/registry";
 import { computeMinorFit } from "@/lib/minors/fit";
 import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { MinorsPanel } from "./minors-panel";
+import { trackSilently } from "@/lib/track";
 
 export default async function MinorsPage() {
   const userId = await getSessionUserId();
@@ -16,6 +17,8 @@ export default async function MinorsPage() {
   if (!user) {
     redirect("/sign-in");
   }
+
+  await trackSilently(userId, "minors");
 
   // Every entry counts here, including the exemption-slot placeholders -
   // an exemption/APC still represents credit the student actually holds,

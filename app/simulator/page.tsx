@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { SimulatorPanel } from "./simulator-panel";
+import { trackSilently } from "@/lib/track";
 
 const EXEMPTION_YEAR = 0;
 const EXEMPTION_SEMESTER = 0;
@@ -18,6 +19,8 @@ export default async function SimulatorPage() {
   if (!user) {
     redirect("/sign-in");
   }
+
+  await trackSilently(userId, "simulator");
 
   // The 0/0 slot holds exemptions and the planner's Reserved bin (modules with no semester yet); neither
   // belongs in a semester grid.

@@ -77,6 +77,9 @@ type Props = {
   violationsByEntryId: Record<string, PrereqViolation[]>;
   analysisByCode: Record<string, ModuleAnalysisData>;
   pendingAnalysisCodes: string[];
+  // Shows the Admin nav link below. Computed server-side from User.isAdmin —
+  // see src/lib/admin.ts; this component never decides admin-ness itself.
+  isAdmin: boolean;
 };
 
 // A module's status isn't picked by hand: it follows from where it sits (see src/lib/plan-status.ts), so these
@@ -146,6 +149,7 @@ export function PlannerBoard({
   violationsByEntryId,
   analysisByCode,
   pendingAnalysisCodes,
+  isAdmin,
 }: Props) {
   const router = useRouter();
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -350,6 +354,14 @@ export function PlannerBoard({
           >
             Usage
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+            >
+              Analytics
+            </Link>
+          )}
           <Link
             href="/settings"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"

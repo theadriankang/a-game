@@ -44,6 +44,13 @@ model User {
   // default instead, since nobody specific is waiting on those.
   preferredLlmProvider LlmProvider @default(ANTHROPIC)
 
+  // Platform admin flag — gates /admin (the analytics dashboard). Not
+  // self-serve: flipped manually (Prisma Studio or a one-off SQL update) by
+  // Adrian for himself and whichever other administrators he trusts, never
+  // settable from any in-app UI. Unrelated to NextAuth's own auth — this is
+  // an authorization bit on top of an already-authenticated session.
+  isAdmin Boolean @default(false)
+
   // Short-lived token for the Telegram account-linking deep link - cleared
   // once used or expired. Not a session/auth credential, just a one-time
   // "which app account does this /start come from" lookup.
@@ -64,6 +71,8 @@ model User {
   analysisRequest AnalysisRequest[]
   telegramLink    TelegramLink?
   savedTimetables SavedTimetable[]
+  dailyActive     DailyActive[]
+  featureUsage    FeatureUsage[]
 
   @@map("users")
 }
@@ -239,6 +248,44 @@ model SavedTimetable {
 
   @@unique([userId, academicYear, semester])
   @@map("saved_timetables")
+}
+
+// --- admin analytics (platform-usage signal, not personal/content data) ---
+
+// One row per user per calendar day they were meaningfully active (any
+// tracked feature touched that day). Upserted rather than inserted per
+// request, so DAU/MAU/stickiness and "last active" are a plain
+// count/groupBy over a table sized users × days — not users × requests —
+// and need no cron rollup job to stay queryable (the project's cron is
+// already pinned to Vercel Hobby's once-daily limit elsewhere; this
+// avoids adding a second dependency on it).
+model DailyActive {
+  userId String
+  date   DateTime @db.Date // truncated to the day, UTC — see src/lib/track.ts
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@index([date])
+  @@map("daily_active")
+}
+
+// One row per user per feature per day, counting how many times that
+// feature was touched. Same upsert-and-increment shape as DailyActive,
+// for the same reason. `feature` is a free-text slug (not an enum) so a
+// new tracked feature never needs a migration — see FEATURES in
+// src/lib/track.ts for the canonical list in use.
+model FeatureUsage {
+  userId  String
+  feature String
+  date    DateTime @db.Date
+  count   Int      @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, feature, date])
+  @@index([feature, date])
+  @@map("feature_usage")
 }
 
 // --- exemptions / advanced placement credits (shared reference data) ---

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/session";
 import { getModuleList, NUSMODS_ACAD_YEAR, type ModuleCondensed } from "@/lib/nusmods";
+import { trackSilently } from "@/lib/track";
 
 type SearchParams = Promise<{ q?: string; page?: string }>;
 
@@ -66,6 +67,8 @@ export default async function ModulesPage({ searchParams }: { searchParams: Sear
   if (!userId) {
     redirect("/sign-in");
   }
+
+  await trackSilently(userId, "modules");
 
   const { q: rawQ, page: rawPage } = await searchParams;
   const q = (rawQ ?? "").trim().slice(0, 80);

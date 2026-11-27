@@ -11,6 +11,7 @@ import {
 import { getCachedAnalysis, hasPendingRequest } from "@/lib/module-analysis";
 import { ModuleDetailView } from "./module-detail-view";
 import { MATH_BRIDGING_CODES, coversMath } from "@/lib/qualifications";
+import { trackSilently } from "@/lib/track";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -25,6 +26,8 @@ export default async function ModulePage({ params }: RouteParams) {
   if (!userId) {
     redirect("/sign-in");
   }
+
+  await trackSilently(userId, "modules");
 
   const { code } = await params;
   const moduleCode = code.toUpperCase();
