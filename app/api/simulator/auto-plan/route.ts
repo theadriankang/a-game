@@ -68,6 +68,9 @@ export async function POST(request: NextRequest) {
         // A student whose maths background NUS treats as H2-equivalent doesn't need the bridging module,
         // so it isn't a prerequisite for them (and shouldn't raise an "assumed you'll have it" warning).
         prereqCodes: flattenPrereqTree(found.prereqTree).filter((c) => !assumed.has(c.toUpperCase())),
+        // The real and/or tree - see auto-plan.ts's isReady()/isTreeSatisfied for why this (not just
+        // prereqCodes) decides whether a module is actually ready to schedule.
+        prereqTree: found.prereqTree,
       });
     }
   }
