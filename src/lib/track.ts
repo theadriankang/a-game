@@ -10,6 +10,7 @@ export const FEATURES = [
   "timetable",
   "modules",
   "minors",
+  "residential_colleges",
   "analysis_request",
 ] as const;
 

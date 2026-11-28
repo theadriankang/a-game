@@ -36,6 +36,17 @@ type SuConflict = {
   patch: { isSU: true } | { academicYear: number; semester: number };
 };
 
+// A specific compulsory module the degree structure still expects that isn't in the
+// plan yet — see src/lib/degree-requirements/still-to-clear.ts for what qualifies.
+type StillToClearEntry = {
+  bucketId: string;
+  bucketLabel: string;
+  group: string;
+  moduleCode: string;
+  title: string;
+  mc: number;
+};
+
 type ModuleAnalysisData = {
   summary: string;
   tags: string[];
@@ -76,6 +87,7 @@ type Props = {
   // Minors / second majors the plan already covers or is close to; empty when there are none.
   programmeNudges: ProgrammeNudge[];
   bucketDefs: RequirementBucketDef[];
+  stillToClear: StillToClearEntry[];
   degreeLabel: string;
   degreeTotalMc: number;
   violationsByEntryId: Record<string, PrereqViolation[]>;
@@ -149,6 +161,7 @@ export function PlannerBoard({
   buckets,
   programmeNudges,
   bucketDefs,
+  stillToClear,
   degreeLabel,
   degreeTotalMc,
   violationsByEntryId,
@@ -160,6 +173,8 @@ export function PlannerBoard({
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [extraYears, setExtraYears] = useState<number[]>([]);
   const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
+  const [draggingChip, setDraggingChip] = useState<StillToClearEntry | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<"overview" | "clear">("overview");
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [view, setView] = useState<"semester" | "requirement">("semester");
@@ -183,6 +198,28 @@ export function PlannerBoard({
     group,
     buckets: buckets.filter((b) => b.group === group),
   }));
+
+  const stillToClearByBucket = Array.from(
+    stillToClear.reduce((map, item) => {
+      const existing = map.get(item.bucketId);
+      if (existing) existing.items.push(item);
+      else map.set(item.bucketId, { bucketLabel: item.bucketLabel, items: [item] });
+      return map;
+    }, new Map<string, { bucketLabel: string; items: StillToClearEntry[] }>())
+  );
+
+  // Drops a still-to-clear chip straight into a semester/the Reserved bin as a new
+  // PLANNED entry, using the same add-module endpoint the "+ Add module" form uses.
+  function dropChip(chip: StillToClearEntry, academicYear: number, semester: number) {
+    return addEntry({
+      academicYear,
+      semester,
+      moduleCode: chip.moduleCode,
+      label: chip.title,
+      mc: chip.mc,
+      status: academicYear === 0 && semester === 0 ? "RESERVED" : "PLANNED",
+    });
+  }
 
   async function deleteEntry(id: string) {
     await fetch(`/api/planner/${id}`, { method: "DELETE" });
@@ -354,6 +391,12 @@ export function PlannerBoard({
             Minors
           </Link>
           <Link
+            href="/residential-colleges"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Residential Colleges
+          </Link>
+          <Link
             href="/usage"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >
@@ -384,6 +427,74 @@ export function PlannerBoard({
 
       <div className="flex items-start gap-0">
         <aside className="min-h-[calc(100vh-73px)] w-[280px] shrink-0 border-r border-border p-5">
+          <div className="mb-4 inline-flex w-full gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+            {(["overview", "clear"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setSidebarTab(tab)}
+                className={`flex-1 rounded-md px-3 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
+                  sidebarTab === tab ? "bg-accent text-white" : "text-text2 hover:text-text1"
+                }`}
+              >
+                {tab === "overview" ? "Overview" : "Still to clear"}
+              </button>
+            ))}
+          </div>
+
+          {sidebarTab === "clear" ? (
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between text-[13px] font-semibold">
+                <span>Still to clear</span>
+                <span className="tabular-nums text-text2">
+                  {stillToClear.length === 0
+                    ? "All placed"
+                    : `${stillToClear.length} module${stillToClear.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <div className="mb-4 text-[10.5px] leading-snug text-text3">
+                Specifically-named modules your degree still expects, not yet in your plan. Drag one
+                straight into a semester (or the Reserved bin).
+              </div>
+
+              {stillToClear.length === 0 ? (
+                <div className="text-[12.5px] text-text3">
+                  Every specifically-named requirement is already in your plan.
+                </div>
+              ) : (
+                stillToClearByBucket.map(([bucketId, { bucketLabel, items }]) => (
+                  <div key={bucketId} className="mb-4">
+                    <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-text3">
+                      {bucketLabel}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((item) => (
+                        <div
+                          key={item.moduleCode}
+                          draggable
+                          onDragStart={(e) => {
+                            setDraggingChip(item);
+                            e.dataTransfer.setData("text/plain", item.moduleCode);
+                            e.dataTransfer.effectAllowed = "copy";
+                          }}
+                          onDragEnd={() => setDraggingChip(null)}
+                          title={`${item.title} · ${item.mc} MC`}
+                          className={`inline-flex cursor-grab items-center gap-1.5 rounded-full border border-border bg-page px-2.5 py-1 text-[12px] font-semibold text-text1 transition-opacity active:cursor-grabbing ${
+                            draggingChip?.moduleCode === item.moduleCode ? "opacity-40" : ""
+                          }`}
+                        >
+                          {item.moduleCode}
+                          <span className="rounded-full bg-seg-bg px-1.5 py-px text-[10px] font-semibold text-text3">
+                            {item.mc}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+          <>
           <div className="mb-4">
             <div className="flex items-baseline justify-between text-[13px] font-semibold">
               <span>Overall</span>
@@ -514,6 +625,8 @@ export function PlannerBoard({
               </button>
             )}
           </div>
+          </>
+          )}
         </aside>
 
         <main className="flex flex-1 flex-col overflow-x-auto p-5">
@@ -615,7 +728,7 @@ export function PlannerBoard({
           <div className="flex gap-4" ref={gridRowRef}>
           <div
             onDragOver={(e) => {
-              if (!draggingEntryId) return;
+              if (!draggingEntryId && !draggingChip) return;
               e.preventDefault();
               setDragOverKey(RESERVED_KEY);
             }}
@@ -625,6 +738,12 @@ export function PlannerBoard({
               const id = e.dataTransfer.getData("text/plain");
               setDragOverKey(null);
               setDraggingEntryId(null);
+              if (draggingChip) {
+                const chip = draggingChip;
+                setDraggingChip(null);
+                dropChip(chip, 0, 0);
+                return;
+              }
               // Dropping a module that's already in the bin back on it changes nothing.
               if (id && !reservedEntries.some((r) => r.id === id)) reserveEntry(id);
             }}
@@ -698,7 +817,7 @@ export function PlannerBoard({
             <div
               key={colKey}
               onDragOver={(e) => {
-                if (!draggingEntryId) return;
+                if (!draggingEntryId && !draggingChip) return;
                 e.preventDefault();
                 setDragOverKey(colKey);
               }}
@@ -710,6 +829,12 @@ export function PlannerBoard({
                 const id = e.dataTransfer.getData("text/plain");
                 setDragOverKey(null);
                 setDraggingEntryId(null);
+                if (draggingChip) {
+                  const chip = draggingChip;
+                  setDraggingChip(null);
+                  dropChip(chip, col.academicYear, col.semester);
+                  return;
+                }
                 if (id) moveEntry(id, col.academicYear, col.semester);
               }}
               className={`w-[220px] shrink-0 rounded-xl border p-3 transition-colors ${

@@ -37,6 +37,18 @@ model User {
   // PASSED_TEST | NONE (see src/lib/qualifications.ts). Null = never asked, treated as not covered.
   mathBackground String?
 
+  // Residential college (RC) programme context, set at onboarding - see
+  // src/lib/residential-colleges. Null if the student isn't staying on
+  // campus or isn't in an RC programme. id matches CollegeStructure.id
+  // (acacia | capt | rc4 | tembusu | rvrc).
+  residentialCollege String?
+  // FRESHMAN_SEM1 | CONTINUING_SEM1 | CONTINUING_SEM2 - see
+  // src/lib/residential-colleges/types.ts AdmissionType. Drives whether
+  // the full 4-course requirement is auto-reserved (freshman only) or
+  // left for the student to confirm with their college office (a later
+  // admission gets a shortened, unpublished-pro-ration residency).
+  rcAdmissionType String?
+
   // Which LLM backend this user's own on-demand module-analysis requests
   // use (the "Request analysis" button - see Settings page). Doesn't
   // affect already-cached reports (ModuleAnalysis is a shared cache, see
@@ -135,6 +147,13 @@ model PlannerEntry {
   semester     Int        // 1 or 2
   status       PlanStatus
   requirementTag String?  // which degree-requirement bucket this counts toward
+  // Set only on a RESERVED row this app generated from a residential
+  // college pick (src/lib/residential-colleges/reservations.ts), as
+  // "<collegeId>:<slotId>" (e.g. "acacia:junior-seminar") - lets
+  // re-running onboarding with a different college (or none) replace the
+  // old college's reservations cleanly, without touching anything the
+  // student added to the Reserved bin by hand.
+  rcSlotId String?
   isSU         Boolean    @default(false) // uses the S/U option; only ever set on modules NUS allows S/U on (src/lib/su-budget.ts)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt

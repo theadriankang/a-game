@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
+import { computeStillToClear } from "@/lib/degree-requirements/still-to-clear";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { getProgrammes } from "@/lib/programmes/store";
 import { computeProgrammeNudges } from "@/lib/minors/nudges";
@@ -100,6 +101,26 @@ export default async function PlannerPage() {
   // NUSMods data couldn't be fetched is left out, so it never offers S/U on a guess).
   const suEligibleCodes = distinctCodes.filter((code) => isSuEligible(moduleInfoByCode[code]));
 
+  // The "Still to clear" rail: specific compulsory modules the degree structure still
+  // expects that aren't in the plan yet (see computeStillToClear's doc for what this
+  // does and doesn't cover). Fetched the same best-effort way as moduleInfoByCode above
+  // — a code NUSMods doesn't recognize is simply left off the rail rather than shown
+  // with a guessed title/MC.
+  const stillToClearGaps = computeStillToClear(entries, degreeStructure);
+  const stillToClearInfoEntries = await Promise.all(
+    stillToClearGaps.map(async (gap) => {
+      try {
+        const info = await getModuleInfo(NUSMODS_ACAD_YEAR, gap.moduleCode);
+        return { ...gap, title: info.title, mc: Number(info.moduleCredit) || 4 };
+      } catch {
+        return null;
+      }
+    })
+  );
+  const stillToClear = stillToClearInfoEntries.filter(
+    (item): item is NonNullable<typeof item> => item !== null
+  );
+
   // Community-signal reports: pull whatever's already cached for the
   // modules in this plan, plus which ones (if any) are still queued, so
   // the board can show a report, a "queued" state, or a request button.
@@ -129,6 +150,7 @@ export default async function PlannerPage() {
       buckets={buckets}
       programmeNudges={programmeNudges}
       bucketDefs={degreeStructure.buckets}
+      stillToClear={stillToClear}
       degreeLabel={degreeStructure.label}
       degreeTotalMc={degreeStructure.totalMc}
       violationsByEntryId={Object.fromEntries(violationsByEntryId)}

@@ -20,6 +20,14 @@ type SimEntry = {
 
 const BASE_YEARS = [1, 2, 3, 4];
 const SEMESTERS = [1, 2];
+
+// Mirrors auto-plan.ts's own SLOTS/slotIndexOf (private there) - 0-based, Y1S1 = 0 .. Y4S2 = 7. Only the
+// standard 4-year horizon the auto-planner knows about has a slot; a year the student added beyond that
+// (sandbox-only "+ Add another year") is never locked, since there's nothing for the boundary to mean there.
+function slotIndex(academicYear: number, semester: number): number {
+  if (academicYear < 1 || academicYear > 4) return -1;
+  return (academicYear - 1) * 2 + (semester - 1);
+}
 // Rough planning assumption only, used purely to project a graduation
 // semester in this sandbox - not a real academic-load rule.
 const ASSUMED_MC_PER_SEMESTER = 20;
@@ -148,9 +156,14 @@ function ModuleCodeField({
 export function SimulatorPanel({
   initialEntries,
   degreeStructure,
+  suggestedLockedThroughIndex,
 }: {
   initialEntries: SimEntry[];
   degreeStructure: DegreeStructure;
+  // Starting point for "What can still be changed?" below (0-based, matching slotIndex) - the calendar's best
+  // guess at the student's current semester, fully overridable here, never saved anywhere (same scratchpad
+  // philosophy as the rest of this sandbox - it resets with "Reset to current plan").
+  suggestedLockedThroughIndex: number;
 }) {
   const [entries, setEntries] = useState<SimEntry[]>(initialEntries);
   const [extraYears, setExtraYears] = useState<number[]>([]);
@@ -162,6 +175,12 @@ export function SimulatorPanel({
   const [targetSemesters, setTargetSemesters] = useState<6 | 7 | 8>(8);
   const [autoPlanning, setAutoPlanning] = useState(false);
   const [autoPlanWarnings, setAutoPlanWarnings] = useState<string[]>([]);
+  const [lockedThroughIndex, setLockedThroughIndex] = useState(suggestedLockedThroughIndex);
+
+  const isLocked = (academicYear: number, semester: number) => {
+    const idx = slotIndex(academicYear, semester);
+    return idx >= 0 && idx <= lockedThroughIndex;
+  };
 
   useEffect(() => {
     setSnapshots(loadSnapshotsFromStorage());
@@ -216,6 +235,7 @@ export function SimulatorPanel({
             semester: e.semester,
           })),
           targetTotalSemesters: targetSemesters,
+          lockedThroughIndex,
         }),
       });
       const data = await res.json();
@@ -281,14 +301,19 @@ export function SimulatorPanel({
   }
 
   function removeEntry(id: string) {
+    const entry = entries.find((e) => e.id === id);
+    if (entry && isLocked(entry.academicYear, entry.semester)) return;
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }
 
   function changeStatus(id: string, status: Status) {
+    const entry = entries.find((e) => e.id === id);
+    if (entry && isLocked(entry.academicYear, entry.semester)) return;
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
   }
 
   function moveEntry(id: string, academicYear: number, semester: number) {
+    if (isLocked(academicYear, semester)) return;
     setEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, academicYear, semester } : e))
     );
@@ -334,6 +359,42 @@ export function SimulatorPanel({
               {accountedMc} / {degreeStructure.totalMc} MC accounted for - rough
               estimate at ~{ASSUMED_MC_PER_SEMESTER} MC/semester, not a real
               academic-load rule.
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-border bg-surface p-3">
+            <div className="text-[13px] font-semibold text-text1">What can still be changed?</div>
+            <p className="mt-1 text-[11.5px] text-text3">
+              Locked semesters won&rsquo;t be touched by &ldquo;Plan my remaining semesters&rdquo; or
+              by dragging in this sandbox - pre-set from today&rsquo;s date, but yours to move (a gap
+              semester, exchange, or deferred intake the date guess doesn&rsquo;t know about). Click a
+              locked one to reopen it and everything after.
+            </p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {BASE_YEARS.map((year) => (
+                <div key={year} className="flex items-center gap-1.5">
+                  <span className="w-11 shrink-0 text-[11px] font-medium text-text2">Year {year}</span>
+                  {SEMESTERS.map((semester) => {
+                    const idx = slotIndex(year, semester);
+                    const locked = idx <= lockedThroughIndex;
+                    return (
+                      <button
+                        key={semester}
+                        type="button"
+                        onClick={() => setLockedThroughIndex(locked ? idx - 1 : idx)}
+                        aria-pressed={locked}
+                        className={`flex-1 rounded-md border px-1.5 py-1 text-[11px] font-semibold transition-colors duration-150 ${
+                          locked
+                            ? "border-border bg-seg-bg text-text3"
+                            : "border-border text-text1 hover:border-accent hover:text-accent"
+                        }`}
+                      >
+                        S{semester} {locked ? "🔒" : "Open"}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -465,10 +526,12 @@ export function SimulatorPanel({
             {columns.map((col) => {
               const colKey = `${col.academicYear}-${col.semester}`;
               const totalMc = col.entries.reduce((sum, e) => sum + e.mc, 0);
+              const locked = isLocked(col.academicYear, col.semester);
               return (
                 <div
                   key={colKey}
                   onDragOver={(e: DragEvent) => {
+                    if (locked) return;
                     if (!draggingId) return;
                     e.preventDefault();
                     setDragOverKey(colKey);
@@ -476,18 +539,31 @@ export function SimulatorPanel({
                   onDragLeave={() => setDragOverKey((k) => (k === colKey ? null : k))}
                   onDrop={(e: DragEvent) => {
                     e.preventDefault();
+                    if (locked) return;
                     const id = e.dataTransfer.getData("text/plain");
                     setDragOverKey(null);
                     setDraggingId(null);
                     if (id) moveEntry(id, col.academicYear, col.semester);
                   }}
                   className={`w-[220px] shrink-0 rounded-xl border p-3 transition-colors ${
-                    dragOverKey === colKey ? "border-accent bg-accent/5" : "border-border bg-surface"
+                    dragOverKey === colKey
+                      ? "border-accent bg-accent/5"
+                      : locked
+                        ? "border-border bg-seg-bg/40"
+                        : "border-border bg-surface"
                   }`}
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="text-[12.5px] font-semibold text-text1">
                       Year {col.academicYear} · Sem {col.semester}
+                      {locked ? (
+                        <span
+                          title="Marked as locked - won't be touched here"
+                          className="ml-1.5 rounded-full bg-seg-bg px-1.5 py-px align-middle text-[9.5px] font-semibold uppercase tracking-wide text-text3"
+                        >
+                          🔒 Locked
+                        </span>
+                      ) : null}
                     </div>
                     <div
                       className={`text-[11px] font-semibold ${
@@ -505,15 +581,16 @@ export function SimulatorPanel({
                     {col.entries.map((entry) => (
                       <div
                         key={entry.id}
-                        draggable
+                        draggable={!locked}
                         onDragStart={(e: DragEvent) => {
+                          if (locked) return;
                           e.dataTransfer.setData("text/plain", entry.id);
                           setDraggingId(entry.id);
                         }}
                         onDragEnd={() => setDraggingId(null)}
-                        className={`animate-fade-slide-in cursor-grab rounded-lg border border-border bg-bg p-2 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm ${
-                          draggingId === entry.id ? "opacity-40" : ""
-                        }`}
+                        className={`animate-fade-slide-in rounded-lg border border-border bg-bg p-2 transition-all duration-150 ${
+                          locked ? "" : "cursor-grab hover:-translate-y-0.5 hover:shadow-sm"
+                        } ${draggingId === entry.id ? "opacity-40" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-1">
                           <div className="min-w-0">
@@ -524,32 +601,51 @@ export function SimulatorPanel({
                               <div className="truncate text-[11px] text-text3">{entry.label}</div>
                             ) : null}
                           </div>
-                          <button
-                            onClick={() => removeEntry(entry.id)}
-                            className="shrink-0 text-[11px] text-text3 hover:text-red-500"
-                          >
-                            ✕
-                          </button>
+                          {locked ? (
+                            <span
+                              title="Locked - won't be touched here"
+                              className="shrink-0 text-[11px] text-text3"
+                            >
+                              🔒
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => removeEntry(entry.id)}
+                              className="shrink-0 text-[11px] text-text3 hover:text-red-500"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-1">
                           <span className="text-[11px] text-text3">{entry.mc} MC</span>
-                          <select
-                            value={entry.status}
-                            onChange={(e) =>
-                              changeStatus(entry.id, e.target.value as Status)
-                            }
-                            className="rounded-full border-0 bg-seg-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-text2 outline-none"
-                          >
-                            <option value="PLANNED">Planned</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="RESERVED">Reserved</option>
-                          </select>
+                          {locked ? (
+                            <span className="rounded-full bg-seg-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-text3">
+                              {entry.status === "COMPLETED" ? "Completed" : entry.status === "RESERVED" ? "Reserved" : "Planned"}
+                            </span>
+                          ) : (
+                            <select
+                              value={entry.status}
+                              onChange={(e) =>
+                                changeStatus(entry.id, e.target.value as Status)
+                              }
+                              className="rounded-full border-0 bg-seg-bg px-1.5 py-0.5 text-[10.5px] font-semibold text-text2 outline-none"
+                            >
+                              <option value="PLANNED">Planned</option>
+                              <option value="COMPLETED">Completed</option>
+                              <option value="RESERVED">Reserved</option>
+                            </select>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {addingTo === colKey ? (
+                  {locked ? (
+                    <div className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-center text-[11px] text-text3">
+                      Locked - move the line above to edit
+                    </div>
+                  ) : addingTo === colKey ? (
                     <SandboxAddForm
                       academicYear={col.academicYear}
                       semester={col.semester}

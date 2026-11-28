@@ -48,5 +48,19 @@ export default async function SimulatorPage() {
 
   const degreeStructure = getDegreeStructureForProgramme(user.programme);
 
-  return <SimulatorPanel initialEntries={initialEntries} degreeStructure={degreeStructure} />;
+  // Same default the auto-plan API falls back to today (see app/api/simulator/auto-plan/route.ts) - everything
+  // through the student's actual current semester is locked, future semesters are fair game. Just a starting
+  // point now: the sandbox lets the student move this boundary by hand, since the calendar guess can be wrong
+  // (gap semester, exchange, deferred intake) and - per Adrian - which semesters are up for grabs in a
+  // simulation is the student's call, not something the real planner should ever restrict.
+  const term = currentTerm(user.matriculationYear);
+  const suggestedLockedThroughIndex = term ? term.index - 1 : -1;
+
+  return (
+    <SimulatorPanel
+      initialEntries={initialEntries}
+      degreeStructure={degreeStructure}
+      suggestedLockedThroughIndex={suggestedLockedThroughIndex}
+    />
+  );
 }
