@@ -16,13 +16,23 @@ export type MinorRequirementGroup = {
   excludeCodes?: string[];
 };
 
+// How a student goes about getting the programme (see ApplicationSchema in src/lib/programmes/schema.ts).
+export type ProgrammeApplication = {
+  type: "apply" | "declare";
+  steps: string[];
+  deadline?: string | null;
+  url?: string | null;
+};
+
 export type MinorStructure = {
   id: string;
   label: string;
   // "second-major" structures are modeled with the same shape (groups of
   // MC requirements) but represent a much larger commitment - kept
-  // visually separate in the UI rather than mixed in with minors.
-  kind?: "minor" | "second-major";
+  // visually separate in the UI rather than mixed in with minors. A
+  // "specialisation" (e.g. a CS focus area) sits inside a primary
+  // programme rather than adding to it.
+  kind?: "minor" | "second-major" | "specialisation";
   department: string;
   totalMcMin: number;
   totalMcMax?: number;
@@ -32,8 +42,17 @@ export type MinorStructure = {
   // a prefix against the user's stored programme string, so it still
   // matches regardless of the faculty suffix.
   excludedProgrammePrefixes: string[];
+  // When non-empty, only students whose programme starts with one of these
+  // can take it (a focus area open to one degree only).
+  eligibleProgrammePrefixes?: string[];
+  application?: ProgrammeApplication | null;
   sourceUrl: string;
   sourceCheckedDate: string;
+  // Which intake the source applies to, as it states it (e.g. "Cohorts 2021/22 onwards").
+  cohortNote?: string | null;
+  // Intakes that can take it (matriculation years; AY2026/27 = 2026). null/absent = no limit on that side.
+  cohortFrom?: number | null;
+  cohortTo?: number | null;
   // Anything found while reading the source that was ambiguous,
   // inconsistent, or not fully confirmed - shown in the UI rather than
   // silently assumed correct. This data hasn't been double-checked by a

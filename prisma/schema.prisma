@@ -339,3 +339,45 @@ model CatalogModule {
 
   @@map("catalog_modules")
 }
+
+// --- programmes: minors and second majors (shared reference data) ---
+//
+// The requirements behind the "you're close to a minor" nudges and the Minors page. Loaded offline by
+// scripts/programmes from data/programmes/programmes.json, which is reviewed in git; extractor drafts never reach
+// this table until a person promotes them (docs/programmes-pipeline.md). The app only reads it, and falls back to
+// the same JSON bundled with the deploy when the table is empty or missing, so nothing depends on the loader having
+// been run.
+
+enum ProgrammeKind {
+  MINOR
+  SECOND_MAJOR
+  SPECIALISATION // a focus area / specialisation inside a primary programme
+}
+
+model Programme {
+  id         String        @id // "minor-statistics"
+  kind       ProgrammeKind
+  label      String
+  department String
+  totalMcMin Int
+  totalMcMax Int?
+  // MinorRequirementGroup[] (src/lib/minors/types.ts): { id, label, requiredMc, moduleCodes?, codePrefixes?, excludeCodes? }
+  groups     Json
+  // Official programme names barred from this one; prefix-matched against User.programme ("<programme> (<faculty>)").
+  excludedProgrammePrefixes String[]
+  // When non-empty, only students whose programme starts with one of these can take it (e.g. a focus area open to one degree).
+  eligibleProgrammePrefixes String[]
+  // How to get it: { type: "apply" | "declare", steps: string[], deadline?: string, url?: string }; null when the source doesn't say.
+  application       Json?
+  sourceUrl         String
+  sourceCheckedDate String // YYYY-MM-DD, the day the source was read
+  caveats           String[] // what the source left ambiguous or the model can't express; shown to students
+  cohortNote        String?  // which intake the source applies to, e.g. "AY2021/2022 onwards"
+  // Intakes that can take it, as matriculation years (AY2026/27 = 2026); null = no limit on that side. Set where a programme is
+  // closed to newer intakes (China Studies: 2025 and before) or exists only for some (Chinese Languages and Cultures: 2026 on).
+  cohortFrom        Int?
+  cohortTo          Int?
+  updatedAt  DateTime @updatedAt
+
+  @@map("programmes")
+}

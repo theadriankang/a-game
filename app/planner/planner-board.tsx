@@ -7,8 +7,10 @@ import Link from "next/link";
 import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
+import type { ProgrammeNudge } from "@/lib/minors/nudges";
 import { entryPhase, termPhase, type CurrentTerm, type EntryPhase } from "@/lib/plan-status";
 import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
+import { ProgrammeNudges } from "./programme-nudges";
 import { SuBudgetDialog, type SuDialogEntry } from "./su-budget-dialog";
 import { ViolationBadge } from "./violation-badge";
 
@@ -71,6 +73,8 @@ type Props = {
   exemptionYear: number;
   exemptionSemester: number;
   buckets: BucketProgress<Entry>[];
+  // Minors / second majors the plan already covers or is close to; empty when there are none.
+  programmeNudges: ProgrammeNudge[];
   bucketDefs: RequirementBucketDef[];
   degreeLabel: string;
   degreeTotalMc: number;
@@ -143,6 +147,7 @@ export function PlannerBoard({
   exemptionYear,
   exemptionSemester,
   buckets,
+  programmeNudges,
   bucketDefs,
   degreeLabel,
   degreeTotalMc,
@@ -512,6 +517,7 @@ export function PlannerBoard({
         </aside>
 
         <main className="flex flex-1 flex-col overflow-x-auto p-5">
+          <ProgrammeNudges nudges={programmeNudges} />
           {actionError ? (
             <div
               role="alert"

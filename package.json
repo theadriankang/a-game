@@ -15,7 +15,12 @@
     "postinstall": "prisma generate",
     "exemptions:build": "tsx scripts/exemptions/build.ts",
     "exemptions:load": "tsx --env-file-if-exists=.env scripts/exemptions/load.ts",
-    "modules:sync": "tsx --env-file-if-exists=.env scripts/modules/sync.ts"
+    "modules:sync": "tsx --env-file-if-exists=.env scripts/modules/sync.ts",
+    "programmes:extract": "tsx --env-file-if-exists=.env scripts/programmes/extract.ts",
+    "programmes:promote": "tsx scripts/programmes/promote.ts",
+    "programmes:validate": "tsx --env-file-if-exists=.env scripts/programmes/validate.ts",
+    "programmes:load": "tsx --env-file-if-exists=.env scripts/programmes/load.ts",
+    "programmes:selftest": "tsx scripts/programmes/selftest.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",

@@ -42,3 +42,8 @@ prisma/dev.db*
 data/exemptions/raw/*
 !data/exemptions/raw/manifest.json
 data/exemptions/manual/
+
+# programme pipeline: raw copies of NUS pages/PDFs stay local (re-fetchable); the manifest, drafts and published data are committed
+data/programmes/raw/*
+!data/programmes/raw/manifest.json
+data/programmes/manual/

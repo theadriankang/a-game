@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { ALL_MINORS, ALL_SECOND_MAJORS } from "@/lib/minors/registry";
-import { computeMinorFit } from "@/lib/minors/fit";
+import { getProgrammes } from "@/lib/programmes/store";
+import { buildOverview } from "@/lib/minors/overview";
 import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
 import { MinorsPanel } from "./minors-panel";
 import { trackSilently } from "@/lib/track";
@@ -29,10 +29,15 @@ export default async function MinorsPage() {
   );
 
   const simpleEntries = entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status }));
-  const minorFits = ALL_MINORS.map((minor) => computeMinorFit(simpleEntries, minor, user.programme));
-  const secondMajorFits = ALL_SECOND_MAJORS.map((structure) =>
-    computeMinorFit(simpleEntries, structure, user.programme)
+  const programmes = await getProgrammes();
+  // Only what this student can actually do is listed (nearest first, so what the planner nudges about leads here
+  // too); the rest is gathered at the bottom with the reason, so nothing looks missing.
+  const overview = buildOverview(
+    simpleEntries,
+    [...programmes.minors, ...programmes.secondMajors, ...programmes.specialisations],
+    user.programme,
+    user.matriculationYear
   );
 
-  return <MinorsPanel minorFits={minorFits} secondMajorFits={secondMajorFits} />;
+  return <MinorsPanel overview={overview} />;
 }

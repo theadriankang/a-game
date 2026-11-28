@@ -1,0 +1,835 @@
+{
+  "minor-ai": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/minor-in-ai",
+    "sha256": "6e0bf9bf6ae564cc691453a822319b76ebc17bb682b33a21ec073d9843807142",
+    "via": "live",
+    "fetchedAt": "2026-11-28T03:46:13.412Z",
+    "file": "minor-ai.html"
+  },
+  "minor-statistics": {
+    "url": "https://www.stat.nus.edu.sg/wp-content/uploads/sites/8/2026/07/STMIN-AY21-22-after_updated-July-2026.pdf",
+    "sha256": "dd2bb7f01378ed1eed982d025ceb9eb3ffa5507d635db3aa7cc8856275bb3f3b",
+    "via": "live",
+    "fetchedAt": "2026-11-28T03:46:15.692Z",
+    "file": "minor-statistics.pdf"
+  },
+  "minor-mathematics": {
+    "url": "https://www.math.nus.edu.sg/wp-content/uploads/sites/4/2026/07/MAmin_2122_14102025.pdf",
+    "sha256": "0ecff5f58bf5e23fd6a9e8656b90949a1e32bdada1698f3763f9dfde76458a98",
+    "via": "live",
+    "fetchedAt": "2026-11-28T03:46:18.049Z",
+    "file": "minor-mathematics.pdf"
+  },
+  "second-major-statistics": {
+    "url": "https://www.stat.nus.edu.sg/wp-content/uploads/sites/8/2026/07/ST2MJ-AY21-22-after_updated-July-2026.pdf",
+    "sha256": "570cad7846a542bc21519484870f18237b7ce17f527b5c16d6499a7ce120d3f8",
+    "via": "live",
+    "fetchedAt": "2026-11-28T03:46:19.882Z",
+    "file": "second-major-statistics.pdf"
+  },
+  "second-major-mathematics": {
+    "url": "https://www.math.nus.edu.sg/wp-content/uploads/sites/4/2026/07/MA2_2122_14102025.pdf",
+    "sha256": "7cc70b9e339dfbf8300913b99eaf4c5d7171a4a760f772c3708c61eeb3e4dae0",
+    "via": "live",
+    "fetchedAt": "2026-11-28T03:46:21.761Z",
+    "file": "second-major-mathematics.pdf"
+  },
+  "minor-business-analytics": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/ba-minor",
+    "sha256": "f5b57e77db7eaec916149c365a4623d50f1dae68d4bde2c0b17bbd035170c6c5",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:40.823Z",
+    "file": "minor-business-analytics.html"
+  },
+  "minor-business-ai-systems": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/minor-in-bais/",
+    "sha256": "bf449211023677e0c013e62d0f3ae9f3b272b1165cc40b2536f4939d34fd76e1",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:42.693Z",
+    "file": "minor-business-ai-systems.html"
+  },
+  "minor-computer-science": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/cs-minor",
+    "sha256": "46be31774fd34dea66d1d75bdcab5a2da3e55084c479131647461c9d512ff71b",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:44.536Z",
+    "file": "minor-computer-science.html"
+  },
+  "minor-information-systems": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/is-minor",
+    "sha256": "08764c618764eae88595771375fbb0ce379a0f6cdb18854a515905e1d7363869",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:46.456Z",
+    "file": "minor-information-systems.html"
+  },
+  "minor-information-security": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/minorc/isc-minor/",
+    "sha256": "112af61bd7f2815c9d923f0f97d41da3c3ffac378b3c1e62bce429be4839f5f2",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:48.269Z",
+    "file": "minor-information-security.html"
+  },
+  "second-major-business-analytics": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/major/ba-secmajor/",
+    "sha256": "9b535567f6c6fa77bbd40608a996e8c63ac5910799c4255b37b553abf9b3a228",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:49.901Z",
+    "file": "second-major-business-analytics.html"
+  },
+  "second-major-computer-science": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/major/cs-secmajor/",
+    "sha256": "7a84f260a05735460dd4523e7c275f27b8f57d8ff22fcf7a5bca9a1e3626a827",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:51.526Z",
+    "file": "second-major-computer-science.html"
+  },
+  "second-major-information-security": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/major/isc/",
+    "sha256": "5490978cf4e4eca83e5fd5dc09a2c9155fc5f2c90c30e7a237c8bb5af7bd8ece",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:53.455Z",
+    "file": "second-major-information-security.html"
+  },
+  "focus-area-algorithms-theory": {
+    "url": "https://comp.nus.edu.sg/programmes/ug/focus",
+    "sha256": "e5f71f203c85383fd958c9b514384cab69fd8268746122b5d66c7a7abdd0ab20",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:03:55.412Z",
+    "file": "focus-area-algorithms-theory.html"
+  },
+  "minor-data-analytics": {
+    "url": "https://www.stat.nus.edu.sg/wp-content/uploads/sites/8/2025/10/18062025-DAMIN-AY19-20-after_29-Jan-2024.pdf",
+    "sha256": "308f40a751e50d85a9de22a4f0e40739e5365f33e1dafeee21387f9075e118fe",
+    "via": "live",
+    "fetchedAt": "2026-11-28T04:59:05.769Z",
+    "file": "minor-data-analytics.pdf"
+  },
+  "minor-innovation-and-design": {
+    "url": "https://cde.nus.edu.sg/edic/idp/minor/idp-minor-cohort-2025-2026/",
+    "sha256": "d11e0cdae973cce73b43962d0fa208258a68eff8148e0f3d40f766ec2ec0e3ff",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.996Z",
+    "file": "minor-innovation-and-design.pdf"
+  },
+  "minor-ai-data-science-for-materials": {
+    "url": "https://cde.nus.edu.sg/mse/wp-content/uploads/sites/4/2026/07/Minor_AIDataSciForMat.pdf",
+    "sha256": "eb7cbad3a8f2077d5772bcb542aa46a64982413d96a5934f48a429a2268974e0",
+    "via": "live",
+    "fetchedAt": "2026-11-28T05:09:22.064Z",
+    "file": "minor-ai-data-science-for-materials.pdf"
+  },
+  "second-major-computing-design-and-engineering": {
+    "url": "https://cde.nus.edu.sg/ece/second-major-in-computing-design-and-engineering",
+    "sha256": "f2a4539cb105498ec57bf8a871b7afdfeb82efc0d9cd643d84b69f979c2020c5",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.985Z",
+    "file": "second-major-computing-design-and-engineering.pdf"
+  },
+  "minor-applied-ai-design-and-engineering": {
+    "url": "https://cde.nus.edu.sg/ece/second-major-or-minor-in-ai/",
+    "sha256": "b57994ee34284163e3871f0cf8e6e0fd1d559d40ac40296a72cb36ee1a054d30",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.959Z",
+    "file": "minor-applied-ai-design-and-engineering.pdf"
+  },
+  "minor-cities": {
+    "url": "https://cde.nus.edu.sg/nuscities/undergraduate/",
+    "sha256": "517b7f6e20826198f905bda7ed05d82e77eaa0a00224c7583a4d17a3c3fd62ff",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.975Z",
+    "file": "minor-cities.pdf"
+  },
+  "minor-data-engineering": {
+    "url": "https://cde.nus.edu.sg/ece/undergraduate/electrical-engineering/specialisations-and-minor/data-engineering/",
+    "sha256": "7fd367879df0a9ade55726436d105c96b481c07aca0b3513ffb1adab2dbe0ac3",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.982Z",
+    "file": "minor-data-engineering.pdf"
+  },
+  "minor-english-language-and-linguistics": {
+    "url": "https://fass.nus.edu.sg/elts/minor-in-english-language-and-linguistics/",
+    "sha256": "eb33dab9d7ce1a6961bec19e8fe5ce71817cb4657563fde20bab64eaa203e279",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.989Z",
+    "file": "minor-english-language-and-linguistics.pdf"
+  },
+  "minor-human-services": {
+    "url": "https://fass.nus.edu.sg/swk/entry-graduation-requirement-undergraduate/",
+    "sha256": "8540bb72211cb76cff34f2f03a65cb6232ab042feae5b319da8d9c7c58d63aca",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.992Z",
+    "file": "minor-human-services.pdf"
+  },
+  "minor-infrastructure-management-and-finance": {
+    "url": "https://cde.nus.edu.sg/dbe/undergraduate/minor-in-infrastructure-management-and-finance/",
+    "sha256": "a53517d35e03fc332c56f6bfc5e6b7d2ab2fc3a139e9baed3b1362c5484028d9",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.994Z",
+    "file": "minor-infrastructure-management-and-finance.pdf"
+  },
+  "minor-interactive-media-development": {
+    "url": "https://fass.nus.edu.sg/cnm/undergraduate-minor-imd/",
+    "sha256": "315c751a834de4815afa164dd444dfabfc4bd7014c7ef48ef84c0bfc72463033",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:21.998Z",
+    "file": "minor-interactive-media-development.pdf"
+  },
+  "minor-language-science": {
+    "url": "https://fass.nus.edu.sg/elts/language-science/",
+    "sha256": "7d9b1c641b82c9fed1afaadcd5f08f15e7dfa04b4a43b425806e1a565673dfc9",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.001Z",
+    "file": "minor-language-science.pdf"
+  },
+  "minor-language-studies-arabic": {
+    "url": "https://fass.nus.edu.sg/cls/minor-in-language-studies/",
+    "sha256": "9913ba047d40bc030282ee15b1b596362589817e9a0abfaf6b37d68abffaa325",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.006Z",
+    "file": "minor-language-studies-arabic.pdf"
+  },
+  "minor-management-of-technology": {
+    "url": "https://cde.nus.edu.sg/isem/undergraduate/minors/minor-in-management-of-technology/",
+    "sha256": "5d1c34ca68248f30e1dc7edeaa8b3e1ac3efa46e0a55504fdfeea21cf9e4319d",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.010Z",
+    "file": "minor-management-of-technology.pdf"
+  },
+  "minor-philosophy": {
+    "url": "https://fass.nus.edu.sg/philo/overview/academic-requirements/",
+    "sha256": "4f643004d8ee49cb2b44b875be48b40ff3a1fe4bfa112c32dcbb82b846cd6d6f",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.011Z",
+    "file": "minor-philosophy.pdf"
+  },
+  "minor-political-science": {
+    "url": "https://fass.nus.edu.sg/pol/graduation-requirements-cohort-2021-onwards/",
+    "sha256": "d2f7cfc6dc281e2b866868394d1acfe22e0a1fb2722593f17154e6ecd8de4c84",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.012Z",
+    "file": "minor-political-science.pdf"
+  },
+  "minor-project-management": {
+    "url": "https://cde.nus.edu.sg/dbe/undergraduate/minor-in-project-management/",
+    "sha256": "2fc6b0031ffa082d5a5a82f81f663b7c7b59ffbadc1b7e410f264316a7f55605",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.014Z",
+    "file": "minor-project-management.pdf"
+  },
+  "minor-psychology": {
+    "url": "https://fass.nus.edu.sg/psy/minor-2/",
+    "sha256": "708fbdebdc5ddb1c7ce26f11bf803655a112a36a57fde9968c235e3df1b5d990",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.015Z",
+    "file": "minor-psychology.pdf"
+  },
+  "minor-sociology": {
+    "url": "https://fass.nus.edu.sg/socanth/minor-sociology/",
+    "sha256": "5abe2935c5d1bc332c87cf6d5ff8d6464362004322dbfac11cae50b076e1059c",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.016Z",
+    "file": "minor-sociology.pdf"
+  },
+  "minor-systems-engineering": {
+    "url": "https://cde.nus.edu.sg/isem/undergraduate/minors/minor-in-systems-engineering/",
+    "sha256": "40d15d22fc958fd1fedd464abf47463c3d4a0fb052e3e55088c457d98872d8d2",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.018Z",
+    "file": "minor-systems-engineering.pdf"
+  },
+  "minor-visual-communication-design": {
+    "url": "https://cde.nus.edu.sg/dd/undergraduate/minor-visual-communication/",
+    "sha256": "e66bcf2ed73a76c44e5939d5b9d6b8bf5cc434c834d95b4f6ab1b698a5eb086c",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.023Z",
+    "file": "minor-visual-communication-design.pdf"
+  },
+  "minor-computing-design-and-engineering": {
+    "url": "https://cde.nus.edu.sg/ece/second-major-in-computing-design-and-engineering/",
+    "sha256": "f2a4539cb105498ec57bf8a871b7afdfeb82efc0d9cd643d84b69f979c2020c5",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.025Z",
+    "file": "minor-computing-design-and-engineering.pdf"
+  },
+  "second-major-innovation-and-design": {
+    "url": "https://cde.nus.edu.sg/edic/idp/second-major/idp-second-major-cohort-ay2024-2025/",
+    "sha256": "537d70caaefe140d84d4c264d441b6ed629dd82a570e71ea8c95d73241b68b13",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.028Z",
+    "file": "second-major-innovation-and-design.pdf"
+  },
+  "minor-aquatic-ecology": {
+    "url": "https://fass.nus.edu.sg/geog/minor-programmes/",
+    "sha256": "c19f93d7f4a033e95cf2ed4f0ac0f10031c5149f8644d9252d933cd6cd0616eb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.030Z",
+    "file": "minor-aquatic-ecology.pdf"
+  },
+  "minor-anthropology": {
+    "url": "https://fass.nus.edu.sg/socanth/minor-anthropology/",
+    "sha256": "f2741ff39de6a9f763ea72fc4b0c27f3d6ef86eacc46c9a3f7ac3fb39ddbcca1",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T12:37:22.032Z",
+    "file": "minor-anthropology.pdf"
+  },
+  "minor-economics": {
+    "url": "https://fass.nus.edu.sg/ecs/students-matriculated-in-academic-year-2021-22-minor-in-econs/",
+    "sha256": "5238448e451135934956dc621ee4fb07ac9451fe8cc8f7d11d34a268cdf9ef54",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.219Z",
+    "file": "minor-economics.pdf"
+  },
+  "minor-integrative-health": {
+    "url": "https://medicine.nus.edu.sg/current-students/integrative-health-minor-mih/curriculum-mih/",
+    "sha256": "d9911399053262aaf8200994db166f5f759991fb015aa410bbf15cb854bd31be",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.230Z",
+    "file": "minor-integrative-health.pdf"
+  },
+  "minor-quantitative-finance": {
+    "url": "https://www.math.nus.edu.sg/ug/majmin/minors/qfmin/",
+    "sha256": "bcac9400bfb1941cdb149d55e26e70a4ffa77e7877332e556f6231fb37ad69d0",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.237Z",
+    "file": "minor-quantitative-finance.pdf"
+  },
+  "minor-visual-cultures": {
+    "url": "https://fass.nus.edu.sg/cnm/undergraduate-minors/undergraduate-minor-visual-cultures/",
+    "sha256": "837ddabb9a5bc6a4f9471f871a88956bc9554ef2f302cdb04bc3f05d9d8da9b8",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.241Z",
+    "file": "minor-visual-cultures.pdf"
+  },
+  "second-major-english-literature": {
+    "url": "https://fass.nus.edu.sg/elts/second-major-in-english-literature/",
+    "sha256": "c6fe60b7354b13b92c02352f8b53e15874054621157b5f92cf89d8e128c99ab2",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.245Z",
+    "file": "second-major-english-literature.pdf"
+  },
+  "second-major-english-language-and-linguistics": {
+    "url": "https://fass.nus.edu.sg/elts/second-major-in-english-language-and-linguistics/",
+    "sha256": "abce10ed4a0a00a414c88a4a178cb95b66c58a2fc2d5cd881e0bd34787aa6642",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.246Z",
+    "file": "second-major-english-language-and-linguistics.pdf"
+  },
+  "minor-human-ai-systems": {
+    "url": "https://fass.nus.edu.sg/elts/human-ai-systems/",
+    "sha256": "ac7ee9f1c95a1bab9072eb828a12f2030919b81ea551e76d82c980e0c09ad39b",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.249Z",
+    "file": "minor-human-ai-systems.pdf"
+  },
+  "second-major-sociology": {
+    "url": "https://fass.nus.edu.sg/socanth/second-major-sociology/",
+    "sha256": "c5407bbf6422b7a2490ffa19fde16bc81936412ac65055eec80394a4bbc77a10",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.251Z",
+    "file": "second-major-sociology.pdf"
+  },
+  "second-major-anthropology": {
+    "url": "https://fass.nus.edu.sg/socanth/second-major-anthropology/",
+    "sha256": "e9f90db08289345a174c6898dbf6c2b938b0a907636803a50de1f79ebd5e2117",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.255Z",
+    "file": "second-major-anthropology.pdf"
+  },
+  "second-major-economics": {
+    "url": "https://fass.nus.edu.sg/ecs/academic-year-2021-22-and-after-2/",
+    "sha256": "5880f4e69a2758ac85a3d9019fa5c39d8b6cf932e26daf8061b77ca2fe986941",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.256Z",
+    "file": "second-major-economics.pdf"
+  },
+  "second-major-communications-and-new-media": {
+    "url": "https://fass.nus.edu.sg/cnm/undergraduate-major/",
+    "sha256": "c1cead468729919a282d3266cdd7c9949f9525849659a7c3de0312bed532cde2",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.257Z",
+    "file": "second-major-communications-and-new-media.pdf"
+  },
+  "minor-communications-and-new-media": {
+    "url": "https://fass.nus.edu.sg/cnm/undergraduate-minor-cnm/",
+    "sha256": "b0fadcae943a13357fe3a0b0c03a0eabd07f99f2ad8bfd32238a80bf2de89ee9",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.259Z",
+    "file": "minor-communications-and-new-media.pdf"
+  },
+  "minor-cultural-studies": {
+    "url": "https://fass.nus.edu.sg/cnm/undergraduate-minor-cultural-studies/",
+    "sha256": "67ff59149fc7aa8154dfc0690ea656c018240eba8510789fcdeabfd429e6f1bc",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.260Z",
+    "file": "minor-cultural-studies.pdf"
+  },
+  "minor-chinese-languages-and-cultures": {
+    "url": "https://fass.nus.edu.sg/cs/minor/",
+    "sha256": "25f7ddf3a6c4f066b461661751d228efd6dd3bf9b5f92bd26c04391cc3ab6aff",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.262Z",
+    "file": "minor-chinese-languages-and-cultures.pdf"
+  },
+  "second-major-chinese-languages-and-cultures": {
+    "url": "https://fass.nus.edu.sg/cs/second-major/",
+    "sha256": "21936625d07f62e7f41cef3f2c8650c4651f2c43f114f6ec524d0f0211f6f6cc",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.265Z",
+    "file": "second-major-chinese-languages-and-cultures.pdf"
+  },
+  "minor-science-technology-and-society": {
+    "url": "https://fass.nus.edu.sg/oop/mdm/science-technology-society/requirements/",
+    "sha256": "f71dc04a0d0127bc9eed8e5b442fee5a2b95527ec3d8c6ddd169d5ff59ee5238",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.272Z",
+    "file": "minor-science-technology-and-society.pdf"
+  },
+  "specialisation-sustainable-finance": {
+    "url": "https://bba.nus.edu.sg/curriculum-ay2026-2027-onwards/",
+    "sha256": "d8139285d390a710fc04c8ec9d40e9d45622efe7c48f6eae61eb5523cbcaad78",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:46:41.275Z",
+    "file": "specialisation-sustainable-finance.pdf"
+  },
+  "second-major-history": {
+    "url": "https://fass.nus.edu.sg/hist/history-requirements/",
+    "sha256": "36864ba08a33b2095c49b15a51160749ffcf455ff2012c2ab869dbd7e4cf9acb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.622Z",
+    "file": "second-major-history.pdf"
+  },
+  "second-major-southeast-asian-studies": {
+    "url": "https://fass.nus.edu.sg/sea/second-major/",
+    "sha256": "88157a3999bee8788c8a0682fc01a00a64e471ab1eccd55067f9a75f83867b3a",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.626Z",
+    "file": "second-major-southeast-asian-studies.pdf"
+  },
+  "minor-southeast-asian-studies": {
+    "url": "https://fass.nus.edu.sg/sea/minor/",
+    "sha256": "56a0a7436628a0350a688cafc355e62d272b3407284ca53fe6e07a7cfc95de0f",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.631Z",
+    "file": "minor-southeast-asian-studies.pdf"
+  },
+  "minor-southeast-asian-arts-and-heritage": {
+    "url": "https://fass.nus.edu.sg/sea/minor-in-southeast-asian-arts-and-heritage/",
+    "sha256": "847b2853427fe9f038f3daca8e4deec7bc9c9df6ed32201dbe5e60c1fb151e8b",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.635Z",
+    "file": "minor-southeast-asian-arts-and-heritage.pdf"
+  },
+  "second-major-malay-studies": {
+    "url": "https://fass.nus.edu.sg/mls/second-major/",
+    "sha256": "75f0869ed507bc15bc8d4e01fe249ad3ce20d466163c4099ce6aa5aec7d08243",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.636Z",
+    "file": "second-major-malay-studies.pdf"
+  },
+  "minor-malay-studies": {
+    "url": "https://fass.nus.edu.sg/mls/minor/",
+    "sha256": "f1b085ed551f704794713451930c1b8839ed025d7e8fbb51ce46f60c8ea5d71d",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.637Z",
+    "file": "minor-malay-studies.pdf"
+  },
+  "second-major-south-asian-studies": {
+    "url": "https://fass.nus.edu.sg/sas/second-major/",
+    "sha256": "cdf94bcc99e50e71af51a393185c353b8a3392d6e1905940c85897d3b860d8b7",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.638Z",
+    "file": "second-major-south-asian-studies.pdf"
+  },
+  "minor-india-studies": {
+    "url": "https://fass.nus.edu.sg/sas/minor/",
+    "sha256": "43027c7d09bca7bc41601c49d0dc5bdbfbbd42fd2bb43c6835895106dc5f528e",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.639Z",
+    "file": "minor-india-studies.pdf"
+  },
+  "second-major-japanese-studies": {
+    "url": "https://fass.nus.edu.sg/jps/second-major/",
+    "sha256": "cfd3b04abe8abb593c13030e7389bfdc23d6138e97c9005447fcb7db576f1fdb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.641Z",
+    "file": "second-major-japanese-studies.pdf"
+  },
+  "second-major-psychology": {
+    "url": "https://fass.nus.edu.sg/psy/second-major/",
+    "sha256": "91bb90c11b7c8a4f5759ca2fff83095a729da5f817f357702d793f2e2173d15b",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.642Z",
+    "file": "second-major-psychology.pdf"
+  },
+  "second-major-geography": {
+    "url": "https://fass.nus.edu.sg/geog/second-major/",
+    "sha256": "5c915a996814b1181acb38815fd11d03878e25adb221bc7cda5d3b852cc1d5c4",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.649Z",
+    "file": "second-major-geography.pdf"
+  },
+  "second-major-environmental-science-for-sustainability": {
+    "url": "https://fass.nus.edu.sg/geog/ess-major/",
+    "sha256": "0e1834fc9c5f4bd1f6b8c9b45de686037fc55a178cfb0977e031ce5b0230d9cf",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.665Z",
+    "file": "second-major-environmental-science-for-sustainability.pdf"
+  },
+  "second-major-theatre-and-performance-studies": {
+    "url": "https://fass.nus.edu.sg/elts/second-major-in-theatre-studies/",
+    "sha256": "b9d907698774e3473b73e215b4b44b25fffbd5a41b9b8dc096e2c70ff693a788",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.667Z",
+    "file": "second-major-theatre-and-performance-studies.pdf"
+  },
+  "minor-asian-studies": {
+    "url": "https://fass.nus.edu.sg/sea/minor-in-asian-studies/",
+    "sha256": "8d0850e2309374cff37e4c4b9ffcadb5f2acb396fb84ab1c74c270d4277a38b3",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T13:57:55.669Z",
+    "file": "minor-asian-studies.pdf"
+  },
+  "minor-entrepreneurship": {
+    "url": "https://bba.nus.edu.sg/second-major-minors-for-non-bba-students/",
+    "sha256": "595a993ddc7d9cab80dc16a3338f6ddc613bfe39970c39418ef8c369f864b61d",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:09:36.483Z",
+    "file": "minor-entrepreneurship.pdf"
+  },
+  "minor-public-health": {
+    "url": "https://sph.nus.edu.sg/education/minor-in-public-health/curriculum/",
+    "sha256": "448460326a32349c9e197fbd694caa38fdd734f892cf5e2e2eda2a725c4e8654",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:09:36.491Z",
+    "file": "minor-public-health.pdf"
+  },
+  "second-major-bba-accountancy": {
+    "url": "https://bba.nus.edu.sg/second-majors-and-minors/",
+    "sha256": "49205c72e3633b7ca6cf39290769faa1e85d992625f94f2f294f90eb0cc3b61d",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:09:36.494Z",
+    "file": "second-major-bba-accountancy.pdf"
+  },
+  "second-major-public-health": {
+    "url": "https://sph.nus.edu.sg/education/second-major-in-public-health/curriculum/",
+    "sha256": "442c9342be9c4f119a53052c87659252aa255d21a32693a80568310090d78eec",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:09:36.512Z",
+    "file": "second-major-public-health.pdf"
+  },
+  "minor-astronomy": {
+    "url": "https://www.physics.nus.edu.sg/student/minor-in-astronomy/",
+    "sha256": "9106087e3fc74e78e3c920470c1b49cb5242b72fe38f3de63013a72c3f725645",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.808Z",
+    "file": "minor-astronomy.pdf"
+  },
+  "minor-bioinformatics": {
+    "url": "https://www.dbs.nus.edu.sg/lifesciences/minor-in-bioinformatics/",
+    "sha256": "a23e6cb0e50265cdc865cb39f7f3ed5f5bfec68cd43367f5875013dab6a07daa",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.809Z",
+    "file": "minor-bioinformatics.pdf"
+  },
+  "minor-botany": {
+    "url": "https://www.dbs.nus.edu.sg/lifesciences/minor-in-botany/",
+    "sha256": "94833dd38f864a5e25cc81b98846af11c23e34d52e5c3c041332f5effa2c5644",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.811Z",
+    "file": "minor-botany.pdf"
+  },
+  "minor-meteorology-and-climate-science": {
+    "url": "https://www.physics.nus.edu.sg/student/minor-in-meteorology-and-climate-science/",
+    "sha256": "3a0680f573cffd18408c3242449a2f7372c9d564935b7a4c54f423419e291e8c",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.812Z",
+    "file": "minor-meteorology-and-climate-science.pdf"
+  },
+  "minor-nanoscience": {
+    "url": "https://www.physics.nus.edu.sg/student/minor-in-nanoscience/",
+    "sha256": "35be70e28b3327c0b4135b219519faeb8b4f8d2c69f1672be3fc1af18d39019a",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.813Z",
+    "file": "minor-nanoscience.pdf"
+  },
+  "minor-physics": {
+    "url": "https://www.physics.nus.edu.sg/student/minor-in-physics/",
+    "sha256": "5dfda531c2d57e49ca61a6349ec41b21b01c2342daed8b58e7f7c8e2d265e7b4",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.814Z",
+    "file": "minor-physics.pdf"
+  },
+  "minor-physics-in-technology": {
+    "url": "https://www.physics.nus.edu.sg/student/physics-in-technology-minor/",
+    "sha256": "e8ce50dbd36bd0a4d027b537f48b450dcbf9a576972e259349e49351f8b421b0",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.815Z",
+    "file": "minor-physics-in-technology.pdf"
+  },
+  "minor-medical-physics": {
+    "url": "https://www.physics.nus.edu.sg/student/minor-in-medical-physics/",
+    "sha256": "dbb99441ef620d60d0e5d128714a2fd2379de798e2efc3bd94727d3243a2f549",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.816Z",
+    "file": "minor-medical-physics.pdf"
+  },
+  "minor-nutrition": {
+    "url": "https://www.fst.nus.edu.sg/education/undergraduate-programme/",
+    "sha256": "77e5d2ed3ff3c117686f2557a23d27a25881c949395d56b5a9b7fb0e18ee97bb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.817Z",
+    "file": "minor-nutrition.pdf"
+  },
+  "minor-pharmaceutical-science": {
+    "url": "https://pharmacy.nus.edu.sg/study/undergraduate/minor-in-pharmaceutical-science/",
+    "sha256": "45ee296eacb07ad11d9ff6bf10290fb5b35fd87adea9dd8283a5955aea82ed74",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.818Z",
+    "file": "minor-pharmaceutical-science.pdf"
+  },
+  "minor-forensic-science": {
+    "url": "https://www.dbs.nus.edu.sg/lifesciences/forensic-science/",
+    "sha256": "e5fceac08542642a0dfea88782be968be824f2cc3c0f969426751c6b3884cce1",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.820Z",
+    "file": "minor-forensic-science.pdf"
+  },
+  "minor-biomedical-engineering": {
+    "url": "https://cde.nus.edu.sg/bme/minor-in-biomedical-engineering/",
+    "sha256": "314e47b06b065424a65223489c9d1d50af4225b36e085951863245dec61dd139",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.821Z",
+    "file": "minor-biomedical-engineering.pdf"
+  },
+  "minor-electrical-engineering": {
+    "url": "https://cde.nus.edu.sg/ece/minor-in-electrical-engineering/",
+    "sha256": "9b1a32163d2455b1f6d4cd4a61a528c2b6b7600e99c91bec074df1bd8830b719",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.822Z",
+    "file": "minor-electrical-engineering.pdf"
+  },
+  "minor-hydrogen-and-low-carbon-technology": {
+    "url": "https://cde.nus.edu.sg/chbe/undergraduate/beng-che/minor-in-hydrogen-and-low-carbon-technology/",
+    "sha256": "2defb338e300efe28cb7cde580422bb4ec08e0f6cf779c5418f095e3368a7a91",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.823Z",
+    "file": "minor-hydrogen-and-low-carbon-technology.pdf"
+  },
+  "minor-mechanical-engineering": {
+    "url": "https://cde.nus.edu.sg/me/undergraduate/minor-mechanical-engineering/",
+    "sha256": "447c28758e6301224bb399846ddac35eb854357e776c0cc8b1ca7e85a6526163",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.824Z",
+    "file": "minor-mechanical-engineering.pdf"
+  },
+  "minor-sustainability-solutions": {
+    "url": "https://cde.nus.edu.sg/cee/undergraduate/minor-in-sustainability-solutions/",
+    "sha256": "7e59969e1d54aa49e269e583de701f64ac276f680a92a3d9692f88049e9e5279",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.826Z",
+    "file": "minor-sustainability-solutions.pdf"
+  },
+  "minor-architectural-studies": {
+    "url": "https://cde.nus.edu.sg/arch/",
+    "sha256": "1b49a3858b2ef87f9357dacafba880fbcd8455c48610a30a255a9ba7e7e5a03b",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.827Z",
+    "file": "minor-architectural-studies.pdf"
+  },
+  "minor-landscape-architectural-studies": {
+    "url": "https://cde.nus.edu.sg/arch/programmes/bachelor-of-landscape-architecture/minor-in-landscape-architectural-studies/",
+    "sha256": "7c91ef0af21d5d3d568877c58d26b243fd67b4178c0be94851234bea9ef6ec32",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.828Z",
+    "file": "minor-landscape-architectural-studies.pdf"
+  },
+  "minor-biomedical-informatics": {
+    "url": "https://medicine.nus.edu.sg/dbmi/education-3/minor-in-biomedical-informatics/",
+    "sha256": "d9dfb38e57e7bc93f5957399faca791d795da7691aa50680cf5ed98f8d1304c5",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.835Z",
+    "file": "minor-biomedical-informatics.pdf"
+  },
+  "minor-music-and-society": {
+    "url": "https://www.ystmusic.nus.edu.sg/",
+    "sha256": "aa913f35fb3c9bba8fea725a8a10f32371411effd1c3f8da350776767f840d00",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.838Z",
+    "file": "minor-music-and-society.pdf"
+  },
+  "minor-community-development-and-leadership": {
+    "url": "https://ctpclc.nus.edu.sg/minor-programme",
+    "sha256": "9754e54b179b8941bbfccecafb21607044853901afa6b841527f5e3c3af7551d",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.844Z",
+    "file": "minor-community-development-and-leadership.pdf"
+  },
+  "minor-english-studies": {
+    "url": "https://fass.nus.edu.sg/elts/english-studies/",
+    "sha256": "83de65075828cb0ab78b0adfb5edeed25f0513c62fd09fe2014d1b213ef27532",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.845Z",
+    "file": "minor-english-studies.pdf"
+  },
+  "minor-film-studies": {
+    "url": "https://fass.nus.edu.sg/elts/film-studies/",
+    "sha256": "2cc392539ed310c07e80c3f8277ccc03c473d7254029e10ba11452b813c347b1",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.847Z",
+    "file": "minor-film-studies.pdf"
+  },
+  "minor-japanese-studies": {
+    "url": "https://fass.nus.edu.sg/jps/minor/",
+    "sha256": "ba27008f4156795b22ddd47f4a6502bb815bcffbaa92a63b89440f9c5480e4a6",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.848Z",
+    "file": "minor-japanese-studies.pdf"
+  },
+  "minor-english-literature": {
+    "url": "https://fass.nus.edu.sg/elts/minor-in-english-literature/",
+    "sha256": "ab702e54d5e92a859f5d0b399c2c6c422d5b2c7bc12ca8b952b9d7beff7535e0",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.849Z",
+    "file": "minor-english-literature.pdf"
+  },
+  "minor-theatre-and-performance-studies": {
+    "url": "https://fass.nus.edu.sg/elts/minor-in-theatre-and-performance-studies/",
+    "sha256": "de5c720e5795f770b12257a79722279ff9b17c7ff0d82154df0010f89f172f97",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.852Z",
+    "file": "minor-theatre-and-performance-studies.pdf"
+  },
+  "minor-religious-studies": {
+    "url": "https://fass.nus.edu.sg/oop/mdm/religious-studies/requirements/",
+    "sha256": "f9d1f5203d7f88a6e18782aa64e5c7730cc0dee91da8130da1d137811451cb98",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.854Z",
+    "file": "minor-religious-studies.pdf"
+  },
+  "minor-health-and-social-sciences": {
+    "url": "https://fass.nus.edu.sg/oop/mdm/health-social-sciences/requirements/",
+    "sha256": "078c9bcaa7f11672a9c06008003d270fbf819c22617cef982f006fc5a40000e9",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.855Z",
+    "file": "minor-health-and-social-sciences.pdf"
+  },
+  "minor-criminal-justice": {
+    "url": "https://fass.nus.edu.sg/socanth/minor-in-criminal-justice/",
+    "sha256": "f386fccbbff31b14902c97caefdd0a0d189850385bbfd21ba8361a44b04440fc",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.857Z",
+    "file": "minor-criminal-justice.pdf"
+  },
+  "minor-gender-studies": {
+    "url": "https://fass.nus.edu.sg/socanth/minor-in-gender-studies-mdm/",
+    "sha256": "111cecc7328638e288e48d50c14598134ac4b2a0f94a7ddca5a859d77483ef09",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.858Z",
+    "file": "minor-gender-studies.pdf"
+  },
+  "minor-health-wellbeing-and-society": {
+    "url": "https://fass.nus.edu.sg/socanth/minor-in-health-well-being-and-society-mdm/",
+    "sha256": "493c030177b7303294c5de1eef4e102179270c39dfa9b54311574fa453586648",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.860Z",
+    "file": "minor-health-wellbeing-and-society.pdf"
+  },
+  "minor-art-history": {
+    "url": "https://fass.nus.edu.sg/hist/art-history-requirements/",
+    "sha256": "7d11a1c156c3ef5fdd544e164af53226e6bbb961acb55ea3bfbc38eb661d2bbb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.861Z",
+    "file": "minor-art-history.pdf"
+  },
+  "minor-global-studies": {
+    "url": "https://fass.nus.edu.sg/globalstudies/faqs/",
+    "sha256": "23b07d37941c7538e306084031228033e76f78e14daf5d7233de511be029253f",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T14:57:06.863Z",
+    "file": "minor-global-studies.pdf"
+  },
+  "second-major-artificial-intelligence": {
+    "url": "https://www.comp.nus.edu.sg/programmes/ug/major/ai-secmajor/",
+    "sha256": "317c0a64f85239fac441cd729e07ff108734538b005ba917ef8db9d4ed44131a",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.285Z",
+    "file": "second-major-artificial-intelligence.pdf"
+  },
+  "second-major-systems-engineering": {
+    "url": "https://cde.nus.edu.sg/isem/",
+    "sha256": "631c11a649a86655db5a7af462ba1ed98cf83b503974a990dcfa3012df426b84",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.286Z",
+    "file": "second-major-systems-engineering.pdf"
+  },
+  "second-major-sustainable-urban-development": {
+    "url": "https://cde.nus.edu.sg/cee/undergraduate/second-major-in-sustainable-urban-development/",
+    "sha256": "d6cfdaaef2fa491a3b1ead88776d3b5bcf0bee62c2c6837abb4012860193fcc0",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.289Z",
+    "file": "second-major-sustainable-urban-development.pdf"
+  },
+  "second-major-data-analytics": {
+    "url": "https://www.stat.nus.edu.sg/",
+    "sha256": "ae69d3801f97e6a286035602d91e9ab28193d42d2b643af3cb3e50c54885e6cb",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.290Z",
+    "file": "second-major-data-analytics.pdf"
+  },
+  "second-major-chemistry": {
+    "url": "https://chemistry.nus.edu.sg/",
+    "sha256": "fb7d636197fe791fbb4c1f7739761442af67f5c877b92e616ede8a036dbade5e",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.291Z",
+    "file": "second-major-chemistry.pdf"
+  },
+  "second-major-physics": {
+    "url": "https://www.physics.nus.edu.sg/student/second-major-in-physics/",
+    "sha256": "d411876a9c789febd4b8bfd6b8c58b4a701aa9621a0134604833549b4b9ca5b6",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.292Z",
+    "file": "second-major-physics.pdf"
+  },
+  "second-major-quantitative-finance": {
+    "url": "https://www.math.nus.edu.sg/",
+    "sha256": "b273ed2b12a0b606aa8af526879f4876fdd3b616080becb80a58fdef1a55e817",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.293Z",
+    "file": "second-major-quantitative-finance.pdf"
+  },
+  "second-major-pharmaceutical-science": {
+    "url": "https://pharmacy.nus.edu.sg/study/undergraduate/second-major-in-pharmaceutical-science/",
+    "sha256": "c61666345bfb6ec0550a9d0297df62e16bb790f4ac1436ca0a504adf396ad0d8",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.296Z",
+    "file": "second-major-pharmaceutical-science.pdf"
+  },
+  "second-major-marine-and-freshwater-ecology": {
+    "url": "https://www.dbs.nus.edu.sg/lifesciences/marine-freshwater-aquatic-ecology/",
+    "sha256": "d4e208224c91628c23cbca3b2ae97b9257bcb1a7cf244c251898e37205530ac8",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:04:42.298Z",
+    "file": "second-major-marine-and-freshwater-ecology.pdf"
+  },
+  "specialisation-advanced-electronics": {
+    "url": "https://cde.nus.edu.sg/ece/undergraduate/electrical-engineering/specialisations-and-minor/",
+    "sha256": "4810bc4eb07321a03aad77b08f0929969c9053a6930cb6ccf1708b110339a2d5",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:08:42.854Z",
+    "file": "specialisation-advanced-electronics.pdf"
+  },
+  "specialisation-esp-nano": {
+    "url": "https://cde.nus.edu.sg/esp/undergraduate/b-eng-engineering-science/specialisation/ay2025-cohort/",
+    "sha256": "1eb29585d28b4c38649342e2b423749d93b936acd28f1f370a1fb622d6b73cdd",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:24:14.005Z",
+    "file": "specialisation-esp-nano.pdf"
+  },
+  "specialisation-esp-nano-2021-2024": {
+    "url": "https://cde.nus.edu.sg/esp/undergraduate/b-eng-engineering-science/specialisation/",
+    "sha256": "6f19f5ddce565d5e714a9f5103da7d6b968af07705724fcad0862ecd8d95aa65",
+    "via": "manual",
+    "fetchedAt": "2026-11-28T15:24:14.008Z",
+    "file": "specialisation-esp-nano-2021-2024.pdf"
+  }
+}

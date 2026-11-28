@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bucketPlannerEntries } from "@/lib/degree-requirements/bucket";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
+import { getProgrammes } from "@/lib/programmes/store";
+import { computeProgrammeNudges } from "@/lib/minors/nudges";
 import { getModuleInfo, type ModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { checkPlan } from "@/lib/prereq-check";
 import { currentTerm, withDerivedStatus } from "@/lib/plan-status";
@@ -58,6 +60,16 @@ export default async function PlannerPage() {
 
   const degreeStructure = getDegreeStructureForProgramme(user.programme);
   const buckets = bucketPlannerEntries(entries, degreeStructure);
+
+  // Minors / second majors the plan already covers or is nearly there on - raised at the top of the board. Same
+  // inputs as the Minors page, so the two never disagree about progress.
+  const programmes = await getProgrammes();
+  const programmeNudges = computeProgrammeNudges(
+    entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status })),
+    [...programmes.minors, ...programmes.secondMajors],
+    user.programme,
+    user.matriculationYear
+  );
 
   // Best-effort: fetch NUSMods data for every distinct module code in the
   // plan, so prereq/preclusion checking has something to check against. A
@@ -115,6 +127,7 @@ export default async function PlannerPage() {
       exemptionYear={EXEMPTION_YEAR}
       exemptionSemester={EXEMPTION_SEMESTER}
       buckets={buckets}
+      programmeNudges={programmeNudges}
       bucketDefs={degreeStructure.buckets}
       degreeLabel={degreeStructure.label}
       degreeTotalMc={degreeStructure.totalMc}
