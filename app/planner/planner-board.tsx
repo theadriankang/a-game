@@ -7,7 +7,7 @@ import Link from "next/link";
 import { describeBucketMatch, type BucketProgress } from "@/lib/degree-requirements/bucket";
 import type { RequirementBucketDef } from "@/lib/degree-requirements/types";
 import type { PrereqViolation } from "@/lib/prereq-check";
-import { entryPhase, termPhase, termIndex, type CurrentTerm, type EntryPhase } from "@/lib/plan-status";
+import { entryPhase, termPhase, type CurrentTerm, type EntryPhase } from "@/lib/plan-status";
 import { ANYTIME_UNITS, canUseSu, suUsage } from "@/lib/su-budget";
 import { SuBudgetDialog, type SuDialogEntry } from "./su-budget-dialog";
 import { ViolationBadge } from "./violation-badge";
@@ -75,10 +75,6 @@ type Props = {
   // Where the student is in their degree today, which decides whether each semester (and so each module in it)
   // is done, in progress or still planned. Null when we don't know their matriculation year.
   currentTerm: CurrentTerm | null;
-  // Semesters the student has told the platform are already done (Settings) - independent of currentTerm's
-  // calendar guess above, for when that guess is wrong (gap semester, exchange, deferred intake). Empty means
-  // nothing's locked, same as before this existed.
-  lockedSemesterIndices: number[];
   semesterEntries: Entry[];
   // Modules the student is considering but hasn't put in a semester yet.
   reservedEntries: Entry[];
@@ -153,7 +149,6 @@ export function PlannerBoard({
   suWindowYears,
   suEligibleCodes,
   currentTerm,
-  lockedSemesterIndices,
   semesterEntries,
   reservedEntries,
   exemptionEntries,
@@ -193,9 +188,6 @@ export function PlannerBoard({
   }
 
   const semesters = buildColumns(semesterEntries, extraYears);
-  const lockedSet = new Set(lockedSemesterIndices);
-  const isLocked = (academicYear: number, semester: number) =>
-    academicYear >= 1 && lockedSet.has(termIndex(academicYear, semester));
   const groupOrder = ["Common Curriculum", "Programme Requirements", "Unrestricted Electives"];
   const bucketsByGroup = groupOrder.map((group) => ({
     group,
@@ -214,7 +206,6 @@ export function PlannerBoard({
   // Drops a still-to-clear chip straight into a semester/the Reserved bin as a new
   // PLANNED entry, using the same add-module endpoint the "+ Add module" form uses.
   function dropChip(chip: StillToClearEntry, academicYear: number, semester: number) {
-    if (isLocked(academicYear, semester)) return;
     return addEntry({
       academicYear,
       semester,
@@ -257,7 +248,6 @@ export function PlannerBoard({
   // other edit - moving a module is just updating which year/semester it belongs
   // to (and dragging one out of the Reserved bin is how it gets a semester).
   function moveEntry(id: string, academicYear: number, semester: number) {
-    if (isLocked(academicYear, semester)) return;
     // Moving an S/U module into a later year can bust the budget (only the any-time units cover those years),
     // so ask which modules to keep rather than moving it and then refusing.
     const entry = semesterEntries.find((e) => e.id === id);
@@ -817,12 +807,10 @@ export function PlannerBoard({
 
           {semesters.map((col) => {
             const colKey = `${col.academicYear}-${col.semester}`;
-            const locked = isLocked(col.academicYear, col.semester);
             return (
             <div
               key={colKey}
               onDragOver={(e) => {
-                if (locked) return;
                 if (!draggingEntryId && !draggingChip) return;
                 e.preventDefault();
                 setDragOverKey(colKey);
@@ -832,7 +820,6 @@ export function PlannerBoard({
               }
               onDrop={(e) => {
                 e.preventDefault();
-                if (locked) return;
                 const id = e.dataTransfer.getData("text/plain");
                 setDragOverKey(null);
                 setDraggingEntryId(null);
@@ -847,9 +834,7 @@ export function PlannerBoard({
               className={`w-[220px] shrink-0 rounded-xl border p-3 transition-colors ${
                 dragOverKey === colKey
                   ? "border-accent bg-accent/5"
-                  : locked
-                    ? "border-border bg-seg-bg/40"
-                    : "border-border bg-surface"
+                  : "border-border bg-surface"
               }`}
             >
               {(() => {
@@ -862,14 +847,7 @@ export function PlannerBoard({
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="text-[12.5px] font-semibold text-text1">
                       Year {col.academicYear} · Sem {col.semester}
-                      {locked ? (
-                        <span
-                          title="Marked as already done in Settings - can't be changed here"
-                          className="ml-1.5 rounded-full bg-seg-bg px-1.5 py-px align-middle text-[9.5px] font-semibold uppercase tracking-wide text-text3"
-                        >
-                          🔒 Locked
-                        </span>
-                      ) : columnTag ? (
+                      {columnTag ? (
                         <span
                           className={`ml-1.5 rounded-full px-1.5 py-px align-middle text-[9.5px] font-semibold uppercase tracking-wide ${
                             phase === "current" ? "bg-accent text-white" : "bg-seg-bg text-text3"
@@ -905,11 +883,9 @@ export function PlannerBoard({
                   <EntryCard
                     key={entry.id}
                     entry={entry}
-                    draggable={!locked}
-                    locked={locked}
+                    draggable
                     isDragging={draggingEntryId === entry.id}
                     onDragStart={(e) => {
-                      if (locked) return;
                       setDraggingEntryId(entry.id);
                       e.dataTransfer.setData("text/plain", entry.id);
                       e.dataTransfer.effectAllowed = "move";
@@ -929,7 +905,7 @@ export function PlannerBoard({
                     onRequestAnalysis={() => entry.moduleCode && requestAnalysis(entry.moduleCode)}
                     onDelete={() => deleteEntry(entry.id)}
                     phase={entryPhase(entry, currentTerm)}
-                    su={locked ? null : suControlFor(entry)}
+                    su={suControlFor(entry)}
                     onToggleSu={() => toggleSu(entry)}
                     onHoverStart={() => setHoveredEntryId(entry.id)}
                     onHoverEnd={() => setHoveredEntryId((id) => (id === entry.id ? null : id))}
@@ -937,11 +913,7 @@ export function PlannerBoard({
                 ))}
               </div>
 
-              {locked ? (
-                <div className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-center text-[11.5px] text-text3">
-                  Locked - unlock it in Settings to add modules
-                </div>
-              ) : addingTo === colKey ? (
+              {addingTo === colKey ? (
                 <AddEntryForm
                   academicYear={col.academicYear}
                   semester={col.semester}
@@ -1122,7 +1094,6 @@ function PrereqConnectorOverlay({
 function EntryCard({
   entry,
   draggable,
-  locked = false,
   isDragging,
   onDragStart,
   onDragEnd,
@@ -1142,8 +1113,6 @@ function EntryCard({
 }: {
   entry: Entry;
   draggable: boolean;
-  // Sits in a semester the student marked as already done (Settings) - no drag, no delete, read-only card.
-  locked?: boolean;
   isDragging: boolean;
   onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
   onDragEnd?: () => void;
@@ -1215,23 +1184,13 @@ function EntryCard({
           {showTitle ? <div className="truncate text-[11px] text-text3">{entry.label}</div> : null}
           <div className="text-[11px] text-text3">{entry.mc} MC</div>
         </div>
-        {locked ? (
-          <span
-            aria-label="Locked - already done, can't be changed"
-            title="Locked - already done, can't be changed"
-            className="shrink-0 text-[11px] text-text3"
-          >
-            🔒
-          </span>
-        ) : (
-          <button
-            onClick={onDelete}
-            aria-label={`Remove ${entry.label}`}
-            className="shrink-0 text-[11px] text-text3 transition-colors duration-150 hover:text-red"
-          >
-            ✕
-          </button>
-        )}
+        <button
+          onClick={onDelete}
+          aria-label={`Remove ${entry.label}`}
+          className="shrink-0 text-[11px] text-text3 transition-colors duration-150 hover:text-red"
+        >
+          ✕
+        </button>
       </div>
 
       <div className="mt-1.5 flex items-center gap-1.5">

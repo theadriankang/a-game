@@ -2,39 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { termIndex } from "@/lib/plan-status";
 
 type LlmProvider = "ANTHROPIC" | "SOCLAAS";
 
 type Props = {
   initialLlmProvider: LlmProvider;
-  // How many years the semester checklist below offers - matches the planner grid's own standard-4-plus-
-  // whatever's-in-use extension, so this never falls short of what's on the board.
-  totalYears: number;
-  // What's actually saved. Empty means nothing's locked - same as before this control existed.
-  initialLockedSemesterIndices: number[];
-  // Only consulted to pre-tick the checklist the first time (initialLockedSemesterIndices is empty) - a guess
-  // from the calendar, not the saved value.
-  suggestedLockedSemesterIndices: number[];
 };
 
-export function SettingsPanel({
-  initialLlmProvider,
-  totalYears,
-  initialLockedSemesterIndices,
-  suggestedLockedSemesterIndices,
-}: Props) {
+export function SettingsPanel({ initialLlmProvider }: Props) {
   const [provider, setProvider] = useState<LlmProvider>(initialLlmProvider);
   const [savingProvider, setSavingProvider] = useState(false);
   const [providerError, setProviderError] = useState<string | null>(null);
-
-  const [lockedIndices, setLockedIndices] = useState<number[]>(
-    initialLockedSemesterIndices.length > 0
-      ? initialLockedSemesterIndices
-      : suggestedLockedSemesterIndices
-  );
-  const [savingLocks, setSavingLocks] = useState(false);
-  const [locksError, setLocksError] = useState<string | null>(null);
 
   const [connected, setConnected] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -79,36 +57,6 @@ export function SettingsPanel({
       setProviderError("Request failed.");
     } finally {
       setSavingProvider(false);
-    }
-  }
-
-  // Optimistic, same shape as updateProvider above: flip the semester's lock immediately, save the whole
-  // array, roll back if it's refused.
-  async function toggleLock(index: number) {
-    if (savingLocks) return;
-    const previous = lockedIndices;
-    const next = previous.includes(index)
-      ? previous.filter((i) => i !== index)
-      : [...previous, index];
-    setLocksError(null);
-    setSavingLocks(true);
-    setLockedIndices(next);
-    try {
-      const res = await fetch("/api/settings/locked-semesters", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lockedSemesterIndices: next }),
-      });
-      if (!res.ok) {
-        setLockedIndices(previous);
-        const data = await res.json().catch(() => null);
-        setLocksError(data?.error ?? "Couldn't save that - try again.");
-      }
-    } catch {
-      setLockedIndices(previous);
-      setLocksError("Request failed.");
-    } finally {
-      setSavingLocks(false);
     }
   }
 
@@ -203,45 +151,6 @@ export function SettingsPanel({
               : "Claude has live web search, so its summaries reflect what students are currently saying - this is the default."}
           </p>
           {providerError ? <div className="mt-2 text-[12px] text-red">{providerError}</div> : null}
-        </div>
-
-        <div className="mt-4 rounded-xl border border-border bg-surface p-4">
-          <div className="text-[14px] font-semibold text-text1">Which semesters are locked?</div>
-          <p className="mt-1 text-[12.5px] text-text3">
-            Mark a semester done and the planner won&rsquo;t let you drag, add, or remove modules in
-            it - on the board or through the API. Pre-ticked from today&rsquo;s date, but this is
-            yours to correct (a gap semester, exchange, or deferred intake the date guess doesn&rsquo;t
-            know about).
-          </p>
-
-          <div className="mt-3 flex flex-col gap-2">
-            {Array.from({ length: totalYears }, (_, i) => i + 1).map((year) => (
-              <div key={year} className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-[12px] font-medium text-text2">Year {year}</span>
-                {[1, 2].map((semester) => {
-                  const index = termIndex(year, semester);
-                  const locked = lockedIndices.includes(index);
-                  return (
-                    <button
-                      key={semester}
-                      type="button"
-                      onClick={() => toggleLock(index)}
-                      disabled={savingLocks}
-                      aria-pressed={locked}
-                      className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition-colors duration-150 disabled:opacity-50 ${
-                        locked
-                          ? "border-border bg-seg-bg text-text3"
-                          : "border-border text-text1 hover:border-accent hover:text-accent"
-                      }`}
-                    >
-                      Sem {semester} {locked ? "🔒 Locked" : "Open"}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-          {locksError ? <div className="mt-2 text-[12px] text-red">{locksError}</div> : null}
         </div>
 
         <div className="mt-4 rounded-xl border border-border bg-surface p-4">

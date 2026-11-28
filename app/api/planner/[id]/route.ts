@@ -6,7 +6,6 @@ import { dbErrorResponse } from "@/lib/api-error";
 import { getModuleInfo, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
 import { canUseSu, firstYearWindowYears, isSuEligible } from "@/lib/su-budget";
 import { duplicateMessage, findDuplicateEntry } from "@/lib/planner-duplicates";
-import { isTermLocked } from "@/lib/plan-status";
 
 const planStatusValues = ["COMPLETED", "PLANNED", "RESERVED"] as const;
 
@@ -112,35 +111,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const { offSU = [], ...fields } = parsed.data;
 
-    // A semester the student has marked as already done (Settings) is locked: nothing already sitting there can
-    // be changed, and nothing can be dragged into it either. The Reserved bin (status RESERVED, slot 0/0) is
-    // never locked - only real semesters are.
-    const lockOwner = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { lockedSemesterIndices: true },
-    });
-    const lockedIndices = lockOwner?.lockedSemesterIndices;
-    if (
-      existing.status !== "RESERVED" &&
-      isTermLocked(existing.academicYear, existing.semester, lockedIndices)
-    ) {
-      return NextResponse.json(
-        { error: `Year ${existing.academicYear} Sem ${existing.semester} is locked - it's marked as already done in Settings.` },
-        { status: 409 }
-      );
-    }
-    if (
-      fields.status !== "RESERVED" &&
-      fields.academicYear !== undefined &&
-      fields.semester !== undefined &&
-      isTermLocked(fields.academicYear, fields.semester, lockedIndices)
-    ) {
-      return NextResponse.json(
-        { error: `Year ${fields.academicYear} Sem ${fields.semester} is locked - it's marked as already done in Settings.` },
-        { status: 409 }
-      );
-    }
-
     // Pointing an entry at a different module can't land on one that's already in the plan.
     if (fields.moduleCode && fields.moduleCode.toUpperCase() !== existing.moduleCode?.toUpperCase()) {
       const duplicate = await findDuplicateEntry(userId, fields.moduleCode, id);
@@ -215,19 +185,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const existing = await assertOwnership(id, userId);
     if (!existing) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
-    }
-
-    if (existing.status !== "RESERVED") {
-      const lockOwner = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { lockedSemesterIndices: true },
-      });
-      if (isTermLocked(existing.academicYear, existing.semester, lockOwner?.lockedSemesterIndices)) {
-        return NextResponse.json(
-          { error: `Year ${existing.academicYear} Sem ${existing.semester} is locked - it's marked as already done in Settings.` },
-          { status: 409 }
-        );
-      }
     }
 
     await prisma.plannerEntry.delete({ where: { id } });

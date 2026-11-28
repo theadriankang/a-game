@@ -30,10 +30,20 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     entries?: AutoPlanExistingEntry[];
     targetTotalSemesters?: number;
+    // 0-based, matching auto-plan.ts's own SLOTS (Y1S1 = 0 .. Y4S2 = 7) - the sandbox's "What can still be
+    // changed?" control (app/simulator/simulator-panel.tsx). -1 means nothing's locked. Optional and falls back
+    // to the calendar-derived default below, so an older client that doesn't send it still works.
+    lockedThroughIndex?: number;
   } | null;
 
   if (!body?.entries || !body.targetTotalSemesters) {
     return NextResponse.json({ error: "Missing entries or targetTotalSemesters." }, { status: 400 });
+  }
+  if (
+    body.lockedThroughIndex !== undefined &&
+    (!Number.isInteger(body.lockedThroughIndex) || body.lockedThroughIndex < -1 || body.lockedThroughIndex > 7)
+  ) {
+    return NextResponse.json({ error: "Invalid lockedThroughIndex." }, { status: 400 });
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest) {
   // falls back to its old behaviour (lock through the furthest existing
   // entry) in that case rather than guessing a boundary from no data.
   const term = currentTerm(user?.matriculationYear);
-  const lockedThroughIndex = term ? term.index - 1 : undefined;
+  const lockedThroughIndex = body.lockedThroughIndex ?? (term ? term.index - 1 : undefined);
 
   const result = buildAutoPlan({
     existingEntries,

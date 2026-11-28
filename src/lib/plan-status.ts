@@ -63,22 +63,6 @@ export function termPhase(academicYear: number, semester: number, current: Curre
   return "future";
 }
 
-/**
- * True when `lockedIndices` (User.lockedSemesterIndices, set in Settings) marks this semester as already done
- * and not to be touched - independent of `currentTerm`'s calendar guess, since that's exactly the point: this
- * is what the student confirmed by hand, for when the calendar guess is wrong (gap semester, exchange,
- * deferred intake). The exemption/Reserved slot (academicYear 0) is never locked.
- */
-export function isTermLocked(
-  academicYear: number,
-  semester: number,
-  lockedIndices: number[] | null | undefined
-): boolean {
-  if (academicYear < 1) return false;
-  if (!lockedIndices || lockedIndices.length === 0) return false;
-  return lockedIndices.includes(termIndex(academicYear, semester));
-}
-
 type Placed = { status: StoredStatus; academicYear: number; semester: number };
 
 export function entryPhase(entry: Placed, current: CurrentTerm | null): EntryPhase {
