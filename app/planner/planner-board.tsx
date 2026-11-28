@@ -349,6 +349,12 @@ export function PlannerBoard({
             Minors
           </Link>
           <Link
+            href="/residential-colleges"
+            className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
+          >
+            Residential Colleges
+          </Link>
+          <Link
             href="/usage"
             className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold text-text1 transition-colors duration-150 hover:bg-seg-bg"
           >

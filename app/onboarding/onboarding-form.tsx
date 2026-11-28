@@ -8,6 +8,8 @@ import { H3Guidance, SuggestionList, useSuggestions, type SuggestedModule } from
 import { ModuleCodeInput, type ChosenModule } from "./module-code-input";
 import { SuBudgetCard } from "./su-budget-card";
 import { MathBackgroundField } from "./math-background-field";
+import { ResidentialCollegeField } from "./residential-college-field";
+import type { AdmissionType } from "@/lib/residential-colleges/types";
 import type { MathBackground } from "@/lib/qualifications";
 import { computeSuBudget, totalApcUnits, type PriorUniversity } from "@/lib/su-budget";
 
@@ -50,6 +52,9 @@ export function OnboardingForm() {
   const [olympiadCategory, setOlympiadCategory] = useState("");
   const [tookH3, setTookH3] = useState(false);
   const [mathBackground, setMathBackground] = useState<MathBackground | "">("");
+  const [onCampus, setOnCampus] = useState(false);
+  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [admissionType, setAdmissionType] = useState<AdmissionType>("FRESHMAN_SEM1");
   // S/U budget is worked out from the rest of the form; these cover what the form can't know, plus an override.
   const [priorUniversity, setPriorUniversity] = useState<PriorUniversity>("none");
   const [takesApcOption, setTakesApcOption] = useState(false);
@@ -172,6 +177,8 @@ export function OnboardingForm() {
           matriculationYear,
           mathBackground: mathBackground || undefined,
           exemptions,
+          residentialCollege: collegeId,
+          rcAdmissionType: collegeId ? admissionType : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -389,6 +396,17 @@ export function OnboardingForm() {
       {tookH3 && <H3Guidance />}
 
       <MathBackgroundField value={mathBackground} onChange={setMathBackground} polytechnic={hasDiploma ? polytechnic : ""} />
+
+      <ResidentialCollegeField
+        onCampus={onCampus}
+        onOnCampusChange={setOnCampus}
+        collegeId={collegeId}
+        onCollegeChange={setCollegeId}
+        admissionType={admissionType}
+        onAdmissionTypeChange={setAdmissionType}
+        matriculationYear={matriculationYear}
+        faculty={faculty}
+      />
 
       <SuBudgetCard
         budget={suBudget}
