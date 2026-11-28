@@ -11,7 +11,7 @@ export const rc4: CollegeStructure = {
   shortLabel: "RC4",
   programme: "UTCP",
   logo: "/logos/rc4.png",
-  logoCredit: "Crest: rc4.nus.edu.sg",
+  logoCredit: "Not an official RC4 crest — RC4 has no heraldic emblem; this is an app-generated placeholder badge in RC4's brand teal.",
   description:
     "Runs the standard UTCP curriculum. Has one college-specific quirk: its own Junior Seminar precludes IE2141 for CDE students (see caveats).",
   slots: [

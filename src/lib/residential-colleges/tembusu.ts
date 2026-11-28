@@ -11,7 +11,7 @@ export const tembusu: CollegeStructure = {
   shortLabel: "Tembusu",
   programme: "UTCP",
   logo: "/logos/tembusu.png",
-  logoCredit: "Crest: tembusu.nus.edu.sg",
+  logoCredit: "Crest: NUS Residential Colleges blog (blog.nus.edu.sg/reslife)",
   description:
     "The oldest UTCP college. Runs the standard UTCP curriculum; students may apply for a 3rd (or rarely 4th) year of residency beyond the core 2-year UTCP commitment.",
   slots: [
