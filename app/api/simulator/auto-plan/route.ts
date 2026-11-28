@@ -4,11 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
 import { MATH_BRIDGING_CODES, assumedModulesFor } from "@/lib/qualifications";
 import { getModuleInfo, flattenPrereqTree, NUSMODS_ACAD_YEAR } from "@/lib/nusmods";
+import { currentTerm } from "@/lib/plan-status";
 import {
   buildAutoPlan,
   type AutoPlanCandidateModule,
   type AutoPlanExistingEntry,
 } from "@/lib/degree-requirements/auto-plan";
+
+// The onboarding placeholder slot for exemptions (see app/api/onboarding,
+// app/planner/page.tsx) - kept out of the semester grid the client sends
+// us, so we fetch it ourselves rather than relying on the client to
+// remember to include it. Without this, exemption credit (e.g. an APC
+// exemption from CS2101) was invisible to the draft: its MC never counted
+// toward that bucket's progress, so the draft could try to (re-)schedule
+// a module the student is already exempted from.
+const EXEMPTION_YEAR = 0;
+const EXEMPTION_SEMESTER = 0;
 
 export async function POST(request: NextRequest) {
   const userId = await getSessionUserId();
@@ -30,8 +41,29 @@ export async function POST(request: NextRequest) {
 
   const assumed = new Set(assumedModulesFor(user?.mathBackground));
 
+  // Exemption credit (status COMPLETED at the 0/0 slot) - excludes the
+  // Reserved bin, which shares that slot but isn't completed credit and
+  // shouldn't count toward a bucket's progress. The client's own entries
+  // (body.entries) never include this slot at all (app/simulator/page.tsx
+  // filters it out before it ever reaches the browser), so without this
+  // query the draft would have no way to know about it.
+  const exemptionRows = await prisma.plannerEntry.findMany({
+    where: { userId, academicYear: EXEMPTION_YEAR, semester: EXEMPTION_SEMESTER, status: { not: "RESERVED" } },
+  });
+  const existingEntries: AutoPlanExistingEntry[] = [
+    ...body.entries,
+    ...exemptionRows.map((e) => ({
+      moduleCode: e.moduleCode,
+      mc: e.mc,
+      status: e.status,
+      requirementTag: e.requirementTag,
+      academicYear: e.academicYear,
+      semester: e.semester,
+    })),
+  ];
+
   const existingCodes = new Set(
-    body.entries.map((e) => e.moduleCode?.toUpperCase()).filter((c): c is string => !!c)
+    existingEntries.map((e) => e.moduleCode?.toUpperCase()).filter((c): c is string => !!c)
   );
 
   // Only fetch NUSMods data for the fixed-list codes this structure
@@ -75,11 +107,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Where the student actually is right now, independent of how far
+  // ahead they've forward-planned - termIndex is 1-based (Y1S1 = 1),
+  // auto-plan's own SLOTS indexing is 0-based, hence the -1. Null when
+  // matriculationYear was never collected (older accounts); buildAutoPlan
+  // falls back to its old behaviour (lock through the furthest existing
+  // entry) in that case rather than guessing a boundary from no data.
+  const term = currentTerm(user?.matriculationYear);
+  const lockedThroughIndex = term ? term.index - 1 : undefined;
+
   const result = buildAutoPlan({
-    existingEntries: body.entries,
+    existingEntries,
     structure,
     candidateModules,
     targetTotalSemesters: body.targetTotalSemesters,
+    lockedThroughIndex,
   });
 
   // No H2-equivalent maths: the bridging module really is a prerequisite, but it isn't in the degree's list, so the

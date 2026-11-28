@@ -108,8 +108,19 @@ export function buildAutoPlan(params: {
   structure: DegreeStructure;
   candidateModules: AutoPlanCandidateModule[];
   targetTotalSemesters: number;
+  // The last slot (0-based, matching SLOTS) the draft must never write
+  // into or move past without respecting what's already there - the
+  // student's actual current/past semesters, which can't be replanned
+  // (a semester already started can't gain a new module, and a finished
+  // one is done). Pass this from src/lib/plan-status.ts's currentTerm()
+  // (index is 1-based there - subtract 1). When omitted (no
+  // matriculationYear on record), falls back to the old behaviour of
+  // locking everything through the furthest existing entry, since there's
+  // no other way to tell which of the student's own entries are already
+  // real versus just forward-planned.
+  lockedThroughIndex?: number;
 }): AutoPlanResult {
-  const { existingEntries, structure, candidateModules, targetTotalSemesters } = params;
+  const { existingEntries, structure, candidateModules, targetTotalSemesters, lockedThroughIndex } = params;
   const warnings: string[] = [];
 
   const existingCodes = new Set(
@@ -117,14 +128,32 @@ export function buildAutoPlan(params: {
   );
   const knownCodes = new Set([...existingCodes, ...candidateModules.map((m) => m.moduleCode.toUpperCase())]);
 
-  // Where the draft should start: the semester right after the furthest
-  // one that already has anything planned, not from the beginning -
-  // existing semesters are left exactly as they are.
+  // Where the draft should start: right after the student's actual
+  // current semester, not the furthest semester they've merely
+  // forward-planned - a semester the student already planned ahead of
+  // where they really are is "future" exactly like an empty one, and is
+  // fair game to top up (see existingMcBySlot below), not just extend
+  // past. Falls back to the furthest existing entry when the caller has
+  // no real current-term data to give us (see the param doc above).
   const furthestIndex = existingEntries.reduce((max, e) => {
     const idx = slotIndexOf(e.academicYear, e.semester);
     return idx > max ? idx : max;
   }, -1);
-  const startIndex = furthestIndex + 1;
+  const lockBoundary = lockedThroughIndex ?? furthestIndex;
+  const startIndex = lockBoundary + 1;
+
+  // How much MC each "future" slot already carries, so the picker starts
+  // from what's really there instead of assuming every future semester is
+  // empty - this is what lets the draft top up a semester the student
+  // left light (e.g. only 12 MC planned) instead of only ever appending
+  // new semesters after the last one touched.
+  const existingMcBySlot = new Map<number, number>();
+  for (const e of existingEntries) {
+    const idx = slotIndexOf(e.academicYear, e.semester);
+    if (idx > lockBoundary) {
+      existingMcBySlot.set(idx, (existingMcBySlot.get(idx) ?? 0) + e.mc);
+    }
+  }
 
   if (startIndex >= targetTotalSemesters) {
     warnings.push("Your plan already fills or exceeds the target number of semesters.");
@@ -196,7 +225,7 @@ export function buildAutoPlan(params: {
   const flaggedUnresolved = new Set<string>();
 
   let slotIndex = startIndex;
-  let slotMc = 0;
+  let slotMc = existingMcBySlot.get(slotIndex) ?? 0;
   const remaining: QueueItem[] = [...queue];
 
   const isReady = (item: QueueItem): boolean => {
@@ -275,7 +304,7 @@ export function buildAutoPlan(params: {
         );
       }
       slotIndex += 1;
-      slotMc = 0;
+      slotMc = existingMcBySlot.get(slotIndex) ?? 0;
       continue;
     }
 
@@ -297,7 +326,7 @@ export function buildAutoPlan(params: {
       slotMc += pick.mc;
       if (slotMc >= SEMESTER_MC_CAP) {
         slotIndex += 1;
-        slotMc = 0;
+        slotMc = existingMcBySlot.get(slotIndex) ?? 0;
       }
       continue;
     }
@@ -338,7 +367,7 @@ export function buildAutoPlan(params: {
 
     if (slotMc >= SEMESTER_MC_CAP) {
       slotIndex += 1;
-      slotMc = 0;
+      slotMc = existingMcBySlot.get(slotIndex) ?? 0;
     }
   }
 
