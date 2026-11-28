@@ -86,7 +86,7 @@ export function ResidentialCollegesPanel({
         <div>
           <h1 className="text-[18px] font-semibold text-text1">Residential Colleges</h1>
           <p className="mt-0.5 max-w-xl text-[13px] text-text3">
-            NUS's University Town residential colleges (and RVRC) each run their own course
+            NUS&apos;s University Town residential colleges (and RVRC) each run their own course
             requirement on top of your degree. Pick yours during onboarding and we&apos;ll reserve
             the right number of generic slots for you — the exact courses still rotate every
             semester, so you choose those yourself once they&apos;re offered.
@@ -110,7 +110,7 @@ export function ResidentialCollegesPanel({
         <p className="mt-6 text-[11.5px] leading-snug text-text3">
           College crests above belong to their respective colleges and are shown here for
           identification only, each credited to its source. If you&apos;re not in any of these
-          (or you're not staying on campus), nothing here applies to you.
+          (or you&apos;re not staying on campus), nothing here applies to you.
         </p>
       </main>
     </div>
