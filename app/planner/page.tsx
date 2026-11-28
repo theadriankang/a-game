@@ -62,12 +62,12 @@ export default async function PlannerPage() {
   const degreeStructure = getDegreeStructureForProgramme(user.programme);
   const buckets = bucketPlannerEntries(entries, degreeStructure);
 
-  // Minors / second majors the plan already covers or is nearly there on - raised at the top of the board. Same
+  // Minors, second majors and specialisations the plan already covers or is nearly there on - raised at the top of the board. Same
   // inputs as the Minors page, so the two never disagree about progress.
   const programmes = await getProgrammes();
   const programmeNudges = computeProgrammeNudges(
     entries.map((e) => ({ moduleCode: e.moduleCode, mc: e.mc, status: e.status })),
-    [...programmes.minors, ...programmes.secondMajors],
+    [...programmes.minors, ...programmes.secondMajors, ...programmes.specialisations],
     user.programme,
     user.matriculationYear
   );
