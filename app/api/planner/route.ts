@@ -6,6 +6,7 @@ import { dbErrorResponse } from "@/lib/api-error";
 import { enqueueAnalysis, processAnalysisRequest } from "@/lib/module-analysis";
 import { isCompulsoryModuleCode } from "@/lib/degree-requirements/bucket";
 import { getDegreeStructureForProgramme } from "@/lib/degree-requirements/registry";
+import { isTermLocked } from "@/lib/plan-status";
 import { AnalysisTrigger } from "@prisma/client";
 import { duplicateMessage, findDuplicateEntry } from "@/lib/planner-duplicates";
 
@@ -76,6 +77,21 @@ export async function POST(request: Request) {
     parsed.data;
 
   try {
+    // A semester the student has marked as already done (Settings) can't take a new module - same rule PATCH
+    // and DELETE enforce on existing entries.
+    if (status !== "RESERVED") {
+      const lockOwner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { lockedSemesterIndices: true },
+      });
+      if (isTermLocked(academicYear, semester, lockOwner?.lockedSemesterIndices)) {
+        return NextResponse.json(
+          { error: `Year ${academicYear} Sem ${semester} is locked - it's marked as already done in Settings.` },
+          { status: 409 }
+        );
+      }
+    }
+
     // The same module can't go in the plan twice (placeholders have no code and are exempt).
     if (moduleCode) {
       const existing = await findDuplicateEntry(userId, moduleCode);

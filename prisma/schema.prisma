@@ -56,6 +56,13 @@ model User {
   // default instead, since nobody specific is waiting on those.
   preferredLlmProvider LlmProvider @default(ANTHROPIC)
 
+  // Semesters the student has told the platform are already done and
+  // shouldn't be touched - entries like src/lib/plan-status.ts's
+  // termIndex(academicYear, semester). Empty until they set this in
+  // Settings, which is the same as nothing being locked (today's
+  // behaviour, unchanged for anyone who never visits that control).
+  lockedSemesterIndices Int[] @default([])
+
   // Platform admin flag — gates /admin (the analytics dashboard). Not
   // self-serve: flipped manually (Prisma Studio or a one-off SQL update) by
   // Adrian for himself and whichever other administrators he trusts, never

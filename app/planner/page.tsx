@@ -144,6 +144,7 @@ export default async function PlannerPage() {
       analysisByCode={analysisByCode}
       pendingAnalysisCodes={pendingCodes}
       isAdmin={user.isAdmin}
+      lockedSemesterIndices={user.lockedSemesterIndices}
     />
   );
 }
