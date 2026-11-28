@@ -6,7 +6,7 @@
   "description": "A-Game: open-source NUS module planner. Drag-and-drop semester planning, prerequisite checking, degree-requirement tracking, and AI-assisted community signal on modules.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma db push --skip-generate && next build",
+    "build": "prisma db push --accept-data-loss --skip-generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
